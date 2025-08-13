@@ -1,0 +1,11 @@
+# Add files here to ignore them from prettier formatting
+
+/dist
+/coverage
+
+CHANGELOG.md
+
+/.nx/cache
+/.yarn
+
+/.nx/workspace-data

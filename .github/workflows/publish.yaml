@@ -1,0 +1,42 @@
+name: Publish library
+
+on:
+  push:
+    tags:
+      - v*
+
+concurrency: ${{ github.ref }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out the code 🗄
+        uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-environment
+        with:
+          npm-token: ${{ secrets.NPM_TOKEN }}
+
+      - name: Lint the code 🕵
+        run: yarn nx run typesafe-rpc:lint
+
+      - name: Check the prettiness of the code 💅
+        run: yarn prettier:check
+
+      - name: Run unit tests 🧪
+        run: yarn nx run typesafe-rpc:test
+
+      - name: Build code 🛠
+        run: yarn nx run typesafe-rpc:build
+
+      - name: Publish the library 🚀
+        run: |
+          cp LICENCE README.md dist/libs/typesafe-rpc
+          cd dist/libs/typesafe-rpc
+          npm publish --tag latest --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,0 +1,37 @@
+{
+  "name": "typesafe-rpc",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/typesafe-rpc/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/rollup:rollup",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "project": "libs/typesafe-rpc/package.json",
+        "outputPath": "dist/libs/typesafe-rpc",
+        "main": "libs/typesafe-rpc/src/index.ts",
+        "tsConfig": "libs/typesafe-rpc/tsconfig.lib.json",
+        "format": ["esm"],
+        "compiler": "tsc",
+        "external": "all",
+        "generateExportsField": true,
+        "rollupConfig": "libs/typesafe-rpc/rollup.config.cjs",
+        "babelUpwardRootMode": true,
+        "updateBuildableProjectDepsInPackageJson": true
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/typesafe-rpc/jest.config.ts"
+      }
+    }
+  }
+}
