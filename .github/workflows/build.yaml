@@ -17,13 +17,13 @@ jobs:
       - uses: ./.github/actions/setup-environment
 
       - name: Lint the code 🕵
-        run: yarn lint
+        run: yarn nx run typesafe-rpc:lint
 
       - name: Check the prettiness of the code 💅
         run: yarn prettier:check
 
       - name: Run unit tests 🧪
-        run: yarn test
+        run: yarn nx run typesafe-rpc:test
 
       - name: Upload coverage to Codecov 📊
         uses: codecov/codecov-action@v5
@@ -31,10 +31,4 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Build code 🛠
-        run: yarn build --baseHref=/typesafe-rpc/
-
-      - name: Deploy the demo website 🚀
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          branch: gh-pages
-          folder: dist/apps/demo
+        run: yarn nx run typesafe-rpc:build

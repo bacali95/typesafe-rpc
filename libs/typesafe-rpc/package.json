@@ -16,8 +16,5 @@
   },
   "bugs": {
     "url": "https://github.com/bacali95/typesafe-rpc/issues"
-  },
-  "exports": {
-    ".": {}
   }
 }

@@ -12,6 +12,10 @@
         "project": "libs/typesafe-rpc/package.json",
         "outputPath": "dist/libs/typesafe-rpc",
         "main": "libs/typesafe-rpc/src/index.ts",
+        "additionalEntryPoints": [
+          "libs/typesafe-rpc/src/server.ts",
+          "libs/typesafe-rpc/src/client.ts"
+        ],
         "tsConfig": "libs/typesafe-rpc/tsconfig.lib.json",
         "format": ["esm"],
         "compiler": "tsc",

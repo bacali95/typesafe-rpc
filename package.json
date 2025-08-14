@@ -38,6 +38,7 @@
     "@nx/rollup": "21.3.11",
     "@nx/web": "21.3.11",
     "@nx/workspace": "21.3.11",
+    "@react-router/dev": "^7.8.0",
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/postcss": "^4.1.11",
     "@testing-library/dom": "^10.4.1",
@@ -79,7 +80,8 @@
     "ts-jest": "29.4.1",
     "ts-node": "10.9.2",
     "typescript": "5.9.2",
-    "url-loader": "^4.1.1"
+    "url-loader": "^4.1.1",
+    "vitest": "^3.2.4"
   },
   "standard-version": {
     "commitAll": true,
