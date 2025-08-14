@@ -1,5 +1,8 @@
 # TypeSafe RPC
 
+![NPM Version](https://img.shields.io/npm/v/typesafe-rpc)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 A modern, type-safe RPC (Remote Procedure Call) library for Node.js, TypeScript, and React applications. Built with full TypeScript support, providing end-to-end type safety between client and server.
 
 ## 🚀 Features
