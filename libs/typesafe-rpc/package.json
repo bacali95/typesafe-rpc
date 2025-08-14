@@ -1,9 +1,9 @@
 {
   "name": "typesafe-rpc",
   "description": "A typesafe RPC library for Node.js, TypeScript and React.",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "license": "MIT",
-  "homepage": "https://bacali95.github.io/typesafe-rpc",
+  "homepage": "https://github.com/bacali95/typesafe-rpc",
   "type": "module",
   "author": {
     "name": "Nasreddine Bac Ali",
