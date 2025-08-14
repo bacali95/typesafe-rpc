@@ -31,7 +31,7 @@ pnpm add typesafe-rpc
 
 ```typescript
 // api-schema.ts
-import type { Handler, BaseContext } from 'typesafe-rpc';
+import type { BaseContext, Handler } from 'typesafe-rpc';
 
 type UserContext = BaseContext & {
   user?: { id: string; name: string };
@@ -64,6 +64,7 @@ export const apiSchema = {
 ```typescript
 // server.ts
 import { createRpcHandler } from 'typesafe-rpc/server';
+
 import { apiSchema } from './api-schema';
 
 export async function handleRequest(request: Request): Promise<Response> {
@@ -82,7 +83,8 @@ export async function handleRequest(request: Request): Promise<Response> {
     hooks: {
       preCall: (context) => console.log('RPC call started'),
       postCall: (context, performance) => console.log(`RPC call completed in ${performance}ms`),
-      error: (context, performance, error) => console.error(`RPC call failed after ${performance}ms:`, error),
+      error: (context, performance, error) =>
+        console.error(`RPC call failed after ${performance}ms:`, error),
     },
   });
 }
@@ -93,6 +95,7 @@ export async function handleRequest(request: Request): Promise<Response> {
 ```typescript
 // client.ts
 import { createRpcClient } from 'typesafe-rpc/client';
+
 import type { apiSchema } from './api-schema';
 
 const client = createRpcClient<typeof apiSchema>('/api/rpc');
@@ -152,7 +155,7 @@ type BaseContext = {
 
 ```typescript
 type Handler<Params, Context extends BaseContext, Result, ExtraParams> = (
-  args: Args<Params, Context, ExtraParams>
+  args: Args<Params, Context, ExtraParams>,
 ) => Promise<Result>;
 ```
 
@@ -197,7 +200,7 @@ function createRpcHandler<T extends RpcSchema, Context extends BaseContext>({
 Creates a type-safe RPC client.
 
 ```typescript
-function createRpcClient<T extends RpcSchema>(endpoint: string): RpcClient<T>
+function createRpcClient<T extends RpcSchema>(endpoint: string): RpcClient<T>;
 ```
 
 The returned client provides a proxy that matches your schema structure with full type safety.
@@ -219,11 +222,17 @@ const authMiddleware: Middleware<any, BaseContext, {}, { user: { id: string } }>
 };
 
 // Usage in handler
-const protectedHandler: Handler<UserParams, BaseContext, UserResult, { user: { id: string } }> =
-  async ({ params, context, extraParams }) => {
-    // extraParams.user is now available with full type safety
-    return { /* ... */ };
+const protectedHandler: Handler<
+  UserParams,
+  BaseContext,
+  UserResult,
+  { user: { id: string } }
+> = async ({ params, context, extraParams }) => {
+  // extraParams.user is now available with full type safety
+  return {
+    /* ... */
   };
+};
 ```
 
 ## 🛠️ Development
