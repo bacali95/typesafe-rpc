@@ -1,5 +1,5 @@
 {
-  "extends": ["plugin:@nx/react", "../../.eslintrc.json"],
+  "extends": ["../../.eslintrc.json"],
   "ignorePatterns": ["!**/*"],
   "overrides": [
     {
@@ -8,9 +8,7 @@
     },
     {
       "files": ["*.ts", "*.tsx"],
-      "rules": {
-        "react/jsx-no-useless-fragment": "off"
-      }
+      "rules": {}
     },
     {
       "files": ["*.js", "*.jsx"],

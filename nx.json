@@ -56,6 +56,5 @@
       }
     }
   },
-  "defaultProject": "demo",
   "useInferencePlugins": false
 }
