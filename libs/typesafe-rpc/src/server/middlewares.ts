@@ -1,4 +1,11 @@
-import type { Args, BaseContext, Middleware } from '../shared';
+import type { Args, BaseContext } from '../shared';
+
+export type Middleware<
+  Params,
+  Context extends BaseContext,
+  ExtraParams,
+  NewExtraParams = object,
+> = (args: Args<Params, Context, ExtraParams>) => Promise<NewExtraParams>;
 
 export const orMiddleware = <
   Params,
