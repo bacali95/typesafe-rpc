@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.6](https://github.com/bacali95/typesafe-rpc/compare/v0.0.5...v0.0.6) (2025-08-14)
+
+
+### Features
+
+* add route handling and middleware enhancements ([fe27541](https://github.com/bacali95/typesafe-rpc/commit/fe275412cd6bba10895f5fcf135045930816026e))
+
 ### [0.0.5](https://github.com/bacali95/typesafe-rpc/compare/v0.0.4...v0.0.5) (2025-08-14)
 
 ### [0.0.4](https://github.com/bacali95/typesafe-rpc/compare/v0.0.3...v0.0.4) (2025-08-14)
