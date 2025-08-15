@@ -1,5 +1,12 @@
 import type { BaseContext, Handler, RpcSchema } from '../shared';
 
+type HookArgs<T extends RpcSchema, Context extends BaseContext> = {
+  entity: keyof T;
+  operation: keyof T[keyof T];
+  params: any;
+  context: Context;
+};
+
 export async function createRpcHandler<T extends RpcSchema, Context extends BaseContext>({
   context,
   operations,
@@ -10,9 +17,9 @@ export async function createRpcHandler<T extends RpcSchema, Context extends Base
   operations: T;
   errorHandler?: (error: any) => Response;
   hooks?: {
-    preCall?: (context: Context) => void;
-    postCall?: (context: Context, performance: number) => void;
-    error?: (context: Context, performance: number, error: any) => void;
+    preCall?: (args: HookArgs<T, Context>) => void;
+    postCall?: (args: HookArgs<T, Context>, performance: number) => void;
+    error?: (args: HookArgs<T, Context>, performance: number, error: any) => void;
   };
 }) {
   if (context.request.method !== 'POST') {
@@ -38,15 +45,15 @@ export async function createRpcHandler<T extends RpcSchema, Context extends Base
 
     const handler = operations[entity][operation] as Handler<any, any, any, any>;
 
-    hooks?.preCall?.(context);
+    hooks?.preCall?.({ entity, operation, params, context });
 
     const result = await handler({ params, context, extraParams: {} });
 
-    hooks?.postCall?.(context, performance.now() - now);
+    hooks?.postCall?.({ entity, operation, params, context }, performance.now() - now);
 
     return result;
   } catch (error: any) {
-    hooks?.error?.(context, performance.now() - now, error);
+    hooks?.error?.({ entity, operation, params, context }, performance.now() - now, error);
     throw errorHandler?.(error) ?? new Response('Internal server error', { status: 500 });
   }
 }
