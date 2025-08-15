@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.7](https://github.com/bacali95/typesafe-rpc/compare/v0.0.6...v0.0.7) (2025-08-15)
+
+
+### Features
+
+* enhance hook arguments in createRpcHandler for improved type safety ([3eb320d](https://github.com/bacali95/typesafe-rpc/commit/3eb320de87cdc98ca1548e4eb458946588153c91))
+
 ### [0.0.6](https://github.com/bacali95/typesafe-rpc/compare/v0.0.5...v0.0.6) (2025-08-14)
 
 
