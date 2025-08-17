@@ -1,20 +1,12 @@
 import type { Args, BaseContext } from '../shared';
 
-export type Middleware<
-  Params,
-  Context extends BaseContext,
-  ExtraParams,
-  NewExtraParams = object,
-> = (args: Args<Params, Context, ExtraParams>) => Promise<NewExtraParams>;
+export type Middleware<Params, Context extends BaseContext> = (
+  args: Args<Params, Context>,
+) => Promise<void>;
 
-export const orMiddleware = <
-  Params,
-  Context extends BaseContext,
-  ExtraParams,
-  NewExtraParams = object,
->(
-  ...middlewares: Middleware<Params, Context, ExtraParams, NewExtraParams>[]
-): Middleware<Params, Context, ExtraParams, NewExtraParams> => {
+export const orMiddleware = <Params, Context extends BaseContext>(
+  ...middlewares: Middleware<Params, Context>[]
+): Middleware<Params, Context> => {
   return async (args) => {
     let firstError: Error | undefined;
 

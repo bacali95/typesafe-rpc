@@ -1,48 +1,38 @@
 import type { Args, BaseContext, Handler } from '../shared';
 import { type Middleware, orMiddleware } from './middlewares';
 
-export interface IRoute<Params, Context extends BaseContext, ExtraParams> {
-  middleware<NewParams>(
-    ...fns: Middleware<Params, Context, ExtraParams, NewParams>[]
-  ): IRoute<Params, Context, ExtraParams & NewParams>;
-  handle<Result>(
-    fn: Handler<Params, Context, Result, ExtraParams>,
-  ): OverridableHandler<Params, Context, Result, Partial<ExtraParams>>;
+export interface IRoute<Params, Context extends BaseContext> {
+  middleware(...fns: Middleware<Params, Context>[]): IRoute<Params, Context>;
+
+  handle<Result>(fn: Handler<Params, Context, Result>): OverridableHandler<Params, Context, Result>;
 }
 
-export interface OverridableHandler<Params, Context extends BaseContext, Result, ExtraParams> {
-  (args: Args<Params, Context, ExtraParams>): Promise<Result>;
-  overrideMiddlewares: (...middlewares: Middleware<Params, Context, ExtraParams>[]) => this;
+export interface OverridableHandler<Params, Context extends BaseContext, Result> {
+  (args: Args<Params, Context>): Promise<Result>;
+  overrideMiddlewares: (...middlewares: Middleware<Params, Context>[]) => this;
 }
 
-export class Route<Params extends object, Context extends BaseContext, ExtraParams>
-  implements IRoute<Params, Context, ExtraParams>
+export class Route<Params extends object, Context extends BaseContext>
+  implements IRoute<Params, Context>
 {
-  constructor(private middlewares: Middleware<Params, Context, ExtraParams>[] = []) {}
+  constructor(private middlewares: Middleware<Params, Context>[] = []) {}
 
-  middleware<NewParams>(
-    ...fns: Middleware<Params, Context, ExtraParams, NewParams>[]
-  ): IRoute<Params, Context, ExtraParams & NewParams> {
-    return new Route<Params, Context, ExtraParams & NewParams>([
+  middleware(...fns: Middleware<Params, Context>[]): IRoute<Params, Context> {
+    return new Route<Params, Context>([
       ...this.middlewares,
-      orMiddleware<Params, Context, ExtraParams, NewParams>(...fns),
-    ] as Middleware<Params, Context, ExtraParams & NewParams>[]);
+      orMiddleware<Params, Context>(...fns),
+    ] as Middleware<Params, Context>[]);
   }
 
   handle<Output>(
-    fn: Handler<Params, Context, Output, ExtraParams>,
-  ): OverridableHandler<Params, Context, Output, Partial<ExtraParams>> {
-    const result: OverridableHandler<Params, Context, Output, Partial<ExtraParams>> = async (
-      args,
-    ) => {
+    fn: Handler<Params, Context, Output>,
+  ): OverridableHandler<Params, Context, Output> {
+    const result: OverridableHandler<Params, Context, Output> = async (args) => {
       for (const middleware of this.middlewares) {
-        args.extraParams = {
-          ...args.extraParams,
-          ...(await middleware(args as Args<Params, Context, ExtraParams>)),
-        };
+        await middleware(args as Args<Params, Context>);
       }
 
-      return fn(args as Args<Params, Context, ExtraParams>);
+      return fn(args as Args<Params, Context>);
     };
 
     result.overrideMiddlewares = (...middlewares) => {

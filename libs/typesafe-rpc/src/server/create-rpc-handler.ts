@@ -43,11 +43,11 @@ export async function createRpcHandler<T extends RpcSchema, Context extends Base
       throw new Response('Not implemented', { status: 501 });
     }
 
-    const handler = operations[entity][operation] as Handler<any, any, any, any>;
+    const handler = operations[entity][operation] as Handler<any, any, any>;
 
     hooks?.preCall?.({ entity, operation, params, context });
 
-    const result = await handler({ params, context, extraParams: {} });
+    const result = await handler({ params, context });
 
     hooks?.postCall?.({ entity, operation, params, context }, performance.now() - now);
 
