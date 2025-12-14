@@ -1,3 +1,5 @@
+import type Express from 'express';
+
 import type { BaseContext, Handler, RpcSchema } from '../shared';
 
 type HookArgs<T extends RpcSchema, Context extends BaseContext> = {
@@ -28,7 +30,7 @@ export async function createRpcHandler<T extends RpcSchema, Context extends Base
 
   const now = performance.now();
 
-  const { entity, operation, params } = (await context.request.json()) as {
+  const { entity, operation, params } = (await getBody(context.request)) as {
     entity: keyof T;
     operation: keyof T[keyof T];
     params: any;
@@ -56,4 +58,11 @@ export async function createRpcHandler<T extends RpcSchema, Context extends Base
     hooks?.error?.({ entity, operation, params, context }, performance.now() - now, error);
     throw errorHandler?.(error) ?? new Response('Internal server error', { status: 500 });
   }
+}
+
+function getBody(request: Request | Express.Request): Promise<any> {
+  if (request instanceof Request) {
+    return request.json();
+  }
+  return request.body;
 }

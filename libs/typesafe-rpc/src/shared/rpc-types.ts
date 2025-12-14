@@ -1,5 +1,7 @@
+import type Express from 'express';
+
 export type BaseContext = {
-  request: Request;
+  request: Request | Express.Request;
 };
 
 export type Args<Params, Context extends BaseContext> = {
