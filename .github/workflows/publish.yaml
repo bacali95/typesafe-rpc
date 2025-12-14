@@ -7,20 +7,19 @@ on:
 
 concurrency: ${{ github.ref }}
 
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
     steps:
       - name: Check out the code 🗄
         uses: actions/checkout@v4
 
       - uses: ./.github/actions/setup-environment
-        with:
-          npm-token: ${{ secrets.NPM_TOKEN }}
 
       - name: Lint the code 🕵
         run: yarn nx run typesafe-rpc:lint
@@ -39,5 +38,3 @@ jobs:
           cp LICENCE README.md dist/libs/typesafe-rpc
           cd dist/libs/typesafe-rpc
           npm publish --tag latest --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

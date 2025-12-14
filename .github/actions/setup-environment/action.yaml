@@ -1,11 +1,6 @@
 name: 'Setup environment'
 description: 'This action will checkout code, setup node and retrieve the cache'
 
-inputs:
-  npm-token:
-    description: NPM Token
-    required: false
-
 runs:
   using: composite
   steps:
