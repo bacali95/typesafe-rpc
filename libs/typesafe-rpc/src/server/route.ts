@@ -12,9 +12,10 @@ export interface OverridableHandler<Params, Context extends BaseContext, Result>
   overrideMiddlewares: (...middlewares: Middleware<Params, Context>[]) => this;
 }
 
-export class Route<Params extends object, Context extends BaseContext>
-  implements IRoute<Params, Context>
-{
+export class Route<Params extends object, Context extends BaseContext> implements IRoute<
+  Params,
+  Context
+> {
   constructor(private middlewares: Middleware<Params, Context>[] = []) {}
 
   middleware(...fns: Middleware<Params, Context>[]): IRoute<Params, Context> {
