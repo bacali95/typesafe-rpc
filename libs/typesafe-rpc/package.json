@@ -1,7 +1,7 @@
 {
   "name": "typesafe-rpc",
   "description": "A typesafe RPC library for Node.js, TypeScript and React.",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "license": "MIT",
   "homepage": "https://github.com/bacali95/typesafe-rpc",
   "type": "module",
