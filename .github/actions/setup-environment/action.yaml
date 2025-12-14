@@ -6,6 +6,8 @@ runs:
   steps:
     - name: Setup Volta
       uses: volta-cli/action@v4
+      with:
+        registry-url: https://registry.npmjs.org
 
     - name: Get yarn cache directory path
       id: yarn-cache-dir-path
