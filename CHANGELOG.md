@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.17](https://github.com/bacali95/typesafe-rpc/compare/v0.0.16...v0.0.17) (2025-12-31)
+
+
+### Bug Fixes
+
+* make headers parameter optional in createRpcClient function ([1108575](https://github.com/bacali95/typesafe-rpc/commit/1108575b331da9afccf7cec6ba751c8521039cf1))
+
 ### [0.0.16](https://github.com/bacali95/typesafe-rpc/compare/v0.0.15...v0.0.16) (2025-12-31)
 
 
