@@ -12,7 +12,7 @@ type RpcClient<T extends RpcSchema> = {
 
 export function createRpcClient<T extends RpcSchema>(
   endpoint: string,
-  headers: HeadersInit,
+  headers?: HeadersInit,
 ): RpcClient<T> {
   return new Proxy(
     {},
