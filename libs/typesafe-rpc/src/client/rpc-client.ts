@@ -10,7 +10,10 @@ type RpcClient<T extends RpcSchema> = {
   };
 };
 
-export function createRpcClient<T extends RpcSchema>(endpoint: string): RpcClient<T> {
+export function createRpcClient<T extends RpcSchema>(
+  endpoint: string,
+  headers: HeadersInit,
+): RpcClient<T> {
   return new Proxy(
     {},
     {
@@ -19,12 +22,11 @@ export function createRpcClient<T extends RpcSchema>(endpoint: string): RpcClien
           {},
           {
             get: (_, operation: string) => (params: any, signal?: AbortSignal) =>
-              fetchData(
-                `${endpoint}?${entity}::${operation}`,
-                'POST',
-                { entity, operation, params },
+              fetchData(`${endpoint}?${entity}::${operation}`, 'POST', {
+                body: JSON.stringify({ entity, operation, params }),
+                headers,
                 signal,
-              ),
+              }),
           },
         ),
     },

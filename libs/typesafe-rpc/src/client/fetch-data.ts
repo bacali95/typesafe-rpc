@@ -3,18 +3,15 @@ import { FetchError } from './fetch-error';
 export async function fetchData<T>(
   url: string,
   method = 'GET',
-  body?: unknown,
-  signal?: AbortSignal,
+  { body, headers, signal }: RequestInit = {},
 ): Promise<T> {
   const response = await fetch(url, {
     method,
-    body: body
-      ? typeof body === 'string' || body instanceof FormData
-        ? body
-        : JSON.stringify(body)
-      : undefined,
+    body,
     headers:
-      body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : undefined,
+      body && !(body instanceof FormData)
+        ? { 'Content-Type': 'application/json', ...headers }
+        : headers,
     signal,
   });
 
