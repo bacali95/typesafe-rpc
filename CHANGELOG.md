@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.16](https://github.com/bacali95/typesafe-rpc/compare/v0.0.15...v0.0.16) (2025-12-31)
+
+
+### Features
+
+* update fetchData and createRpcClient to accept headers and improve request handling ([001c05b](https://github.com/bacali95/typesafe-rpc/commit/001c05b6c6de16dbb056415d1365a9552ffcc04c))
+
 ### [0.0.15](https://github.com/bacali95/typesafe-rpc/compare/v0.0.14...v0.0.15) (2025-12-14)
 
 ### [0.0.14](https://github.com/bacali95/typesafe-rpc/compare/v0.0.13...v0.0.14) (2025-12-14)
