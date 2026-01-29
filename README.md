@@ -23,6 +23,8 @@ npm install typesafe-rpc
 yarn add typesafe-rpc
 # or
 pnpm add typesafe-rpc
+# or
+bun add typesafe-rpc
 ```
 
 ## 🎯 Quick Start
@@ -240,33 +242,33 @@ const protectedHandler: Handler<
 ### Prerequisites
 
 - Node.js 18+
-- Yarn 4.9.2+
+- Bun 1.3.5+
 
 ### Setup
 
 ```bash
 git clone https://github.com/bacali95/typesafe-rpc.git
 cd typesafe-rpc
-yarn install
+bun install
 ```
 
 ### Available Scripts
 
 ```bash
 # Build the library
-yarn build
+bun run build
 
 # Run tests
-yarn test
+bun run test
 
 # Lint code
-yarn lint
+bun run lint
 
 # Format code
-yarn prettier:fix
+bun run prettier:fix
 
 # Check code formatting
-yarn prettier:check
+bun run prettier:check
 ```
 
 ## 🤝 Contributing

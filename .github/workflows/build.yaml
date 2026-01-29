@@ -17,13 +17,13 @@ jobs:
       - uses: ./.github/actions/setup-environment
 
       - name: Lint the code 🕵
-        run: yarn nx run typesafe-rpc:lint
+        run: bun run lint
 
       - name: Check the prettiness of the code 💅
-        run: yarn prettier:check
+        run: bun run prettier:check
 
       - name: Run unit tests 🧪
-        run: yarn nx run typesafe-rpc:test
+        run: bun run test
 
       - name: Upload coverage to Codecov 📊
         uses: codecov/codecov-action@v5
@@ -31,4 +31,4 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Build code 🛠
-        run: yarn nx run typesafe-rpc:build
+        run: bun run build

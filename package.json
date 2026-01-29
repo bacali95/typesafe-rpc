@@ -2,16 +2,12 @@
   "name": "typesafe-rpc",
   "version": "0.0.0",
   "license": "MIT",
-  "packageManager": "yarn@4.12.0",
   "scripts": {
-    "start": "nx serve",
-    "build": "nx build",
+    "build": "nx run typesafe-rpc:build",
     "test": "nx run typesafe-rpc:test --coverage",
-    "lint": "nx lint",
+    "lint": "nx run typesafe-rpc:lint",
     "prettier:check": "nx format:check",
     "prettier:fix": "nx format:write",
-    "deduplicate": "yarn-berry-deduplicate && yarn",
-    "deduplicate:list": "yarn-berry-deduplicate -l",
     "release": "standard-version"
   },
   "private": true,
@@ -49,16 +45,11 @@
     "standard-version": "^9.5.0",
     "ts-jest": "29.4.6",
     "ts-node": "10.9.2",
-    "typescript": "5.9.3",
-    "yarn-berry-deduplicate": "^6.1.3"
+    "typescript": "5.9.3"
   },
   "standard-version": {
     "commitAll": true,
     "packageFiles": "libs/typesafe-rpc/package.json",
     "bumpFiles": "libs/typesafe-rpc/package.json"
-  },
-  "volta": {
-    "node": "24.12.0",
-    "yarn": "4.12.0"
   }
 }

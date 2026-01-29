@@ -4,32 +4,23 @@ description: 'This action will checkout code, setup node and retrieve the cache'
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v4
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
       with:
-        node-version: '24'
-        registry-url: 'https://registry.npmjs.org'
+        bun-version: 1.3.5
 
-    - name: Get yarn cache directory path
-      id: yarn-cache-dir-path
-      shell: bash
-      run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
-
-    - name: Restore yarn cache 📦
-      uses: actions/cache/restore@v4
-      id: yarn-cache-restore
+    - name: Restore bun cache 📦
+      uses: actions/cache@v4
+      id: bun-cache
+      if: inputs.skip-install != 'true'
       with:
-        path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-        key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-yarn-
+        path: |
+          ./node_modules
+          ~/.cache/Cypress
+          ~/.bun/install/cache
+        key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+        restore-keys: ${{ runner.os }}-bun-
 
     - name: Install packages 🏭
       shell: bash
-      run: yarn --immutable
-
-    - name: Save yarn cache 📦
-      uses: actions/cache/save@v4
-      if: steps.yarn-cache-restore.outputs.cache-hit != 'true'
-      with:
-        path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-        key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+      run: bun install --frozen-lockfile
