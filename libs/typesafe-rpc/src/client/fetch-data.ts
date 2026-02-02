@@ -16,7 +16,16 @@ export async function fetchData<T>(
   });
 
   if (!response.ok) {
-    throw new FetchError(await response.text(), response.status);
+    const error = await response.text();
+    let key, message;
+    try {
+      const data = JSON.parse(error);
+      key = data.key;
+      message = data.message;
+    } catch {
+      message = error;
+    }
+    throw new FetchError(message, key, response.status);
   }
 
   return response.json();
