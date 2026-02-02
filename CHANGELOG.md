@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.18](https://github.com/bacali95/typesafe-rpc/compare/v0.0.17...v0.0.18) (2026-02-02)
+
+
+### Features
+
+* add typesafe-rpc documentation with overview, core types, server and client usage, and conventions ([9dec3ae](https://github.com/bacali95/typesafe-rpc/commit/9dec3aed3b896f5f77698aa67b8dcab653955231))
+
+
+### Bug Fixes
+
+* enhance FetchError handling to include error key and improve error message parsing in fetchData ([cb4162b](https://github.com/bacali95/typesafe-rpc/commit/cb4162b45f2daaf06713d8cd68b1202a361f7ce6))
+
 ### [0.0.17](https://github.com/bacali95/typesafe-rpc/compare/v0.0.16...v0.0.17) (2025-12-31)
 
 
