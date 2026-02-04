@@ -11,7 +11,7 @@ type RpcClient<T extends RpcSchema> = {
   };
 };
 
-export function createRpcClient<T extends RpcSchema, Context extends BaseContext>(
+export function createRpcClient<T extends RpcSchema, Context extends BaseContext = BaseContext>(
   endpoint: string,
   headers?: HeadersInit | ((context: Context) => HeadersInit),
 ): RpcClient<T> {
