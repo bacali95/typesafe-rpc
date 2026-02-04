@@ -27,7 +27,10 @@ export async function fetchData<T>(
       key = 'internalError';
       message = error;
     }
-    throw new FetchError(key, message, response.status, data);
+    if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
+      throw new FetchError(key, message, response.status, data);
+    }
+    throw new Response(error, { status: response.status });
   }
 
   return response.json();
