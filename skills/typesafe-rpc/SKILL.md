@@ -7,7 +7,7 @@ description: Type-safe RPC library for Node/TS with end-to-end types. Defines sc
 
 ## Overview
 
-This repo is a type-safe RPC library. The server accepts POST bodies `{ entity, operation, params }` and runs the matching handler. The client is a typed proxy: `client.entity.operation(params, signal?)`. Types are shared so client calls are inferred from the schema.
+This repo is a type-safe RPC library. The server accepts POST bodies `{ entity, operation, params }` and runs the matching handler. The client is a typed proxy: `client.entity.operation(params, signal?, context?)`. Types are shared so client calls are inferred from the schema.
 
 ## Core types (shared)
 
@@ -45,7 +45,7 @@ From `typesafe-rpc/server`:
 ```typescript
 import { createRpcHandler } from 'typesafe-rpc/server';
 
-const response = await createRpcHandler({
+const result = await createRpcHandler({
   context: { request },           // must include request
   operations: apiSchema,
   errorHandler: (error) => new Response(JSON.stringify({ error: '...' }), { status: 500 }),
@@ -59,6 +59,7 @@ const response = await createRpcHandler({
 
 - Expects `context.request.method === 'POST'`; body must be JSON `{ entity, operation, params }`.
 - Hook args: `{ entity, operation, params, context }`.
+- Returns the handler result directly; throws `Response` on error.
 - If no `errorHandler`, throws a generic 500 Response.
 
 ## Client: createRpcClient
@@ -69,13 +70,20 @@ From `typesafe-rpc/client`:
 import { createRpcClient } from 'typesafe-rpc/client';
 import type { apiSchema } from './api-schema';
 
-const client = createRpcClient<typeof apiSchema>('/api/rpc', optionalHeaders);
+// Static headers
+const client = createRpcClient<typeof apiSchema>('/api/rpc', { Authorization: 'Bearer ...' });
+
+// Dynamic headers via function (receives context passed to call)
+const client = createRpcClient<typeof apiSchema, MyContext>('/api/rpc', (ctx) => ({
+  Authorization: ctx.token,
+}));
 
 const result = await client.items.getById({ id: '1' });
 const withAbort = await client.items.getById({ id: '1' }, signal);
+const withContext = await client.items.getById({ id: '1' }, undefined, context);
 ```
 
-Client calls `POST endpoint?entity::operation` with body `{ entity, operation, params }`. Use the same schema type (`typeof apiSchema`) for full inference.
+Client signature: `client.entity.operation(params, signal?, context?)`. Calls `POST endpoint?entity::operation` with body `{ entity, operation, params }`. Use the same schema type (`typeof apiSchema`) for full inference.
 
 ## Route and middlewares
 
@@ -85,7 +93,8 @@ From `typesafe-rpc/server`: `Route`, `Middleware`, `orMiddleware`.
 - **Route**: chain `.middleware(...fns)` then `.handle(handler)`.
   - Multiple `.middleware(a, b, c)`: **OR** — first success wins (via `orMiddleware`).
   - Chained `.middleware(a).middleware(b)`: **AND** — all run in order.
-- **orMiddleware(...middlewares)**: runs middlewares in order; returns on first that doesn’t throw; if all throw, rethrows the first error.
+- **orMiddleware(...middlewares)**: runs middlewares in order; returns on first that doesn't throw; if all throw, rethrows the first error.
+- **OverridableHandler**: the handler returned by `.handle()` has an `overrideMiddlewares(...middlewares)` method to replace middlewares (useful for testing).
 
 ```typescript
 import { Route } from 'typesafe-rpc/server';
@@ -94,6 +103,9 @@ const handler = new Route<{ id: string }, BaseContext>()
   .middleware(authOrAnonymous)
   .middleware(requireReadPermission)
   .handle(async ({ params, context }) => ({ name: '...' }));
+
+// For testing: bypass middlewares
+handler.overrideMiddlewares(mockAuth);
 ```
 
 Use the resulting handler as the function stored in the schema (e.g. `getById: handler`).
@@ -101,7 +113,23 @@ Use the resulting handler as the function stored in the schema (e.g. `getById: h
 ## Request/response and errors
 
 - Server reads body via `request.json()` (Fetch) or `request.body` (Express).
-- Client sends JSON and parses response with `response.json()`. Non-ok responses throw `FetchError` (from `typesafe-rpc/client`).
+- Client sends JSON and parses response with `response.json()`. Non-ok responses throw `FetchError`.
+
+### FetchError
+
+From `typesafe-rpc/client`:
+
+```typescript
+import { FetchError } from 'typesafe-rpc/client';
+
+class FetchError extends Error {
+  readonly key: string;     // error key from response JSON, or 'internalError'
+  readonly status: number;  // HTTP status code
+  readonly data?: any;      // optional data from response JSON
+}
+```
+
+The client parses error responses as JSON `{ key, message, data }`. If parsing fails, `key` defaults to `'internalError'` and `message` is the raw response text.
 
 ## Conventions in this repo
 
