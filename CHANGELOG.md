@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.23](https://github.com/bacali95/typesafe-rpc/compare/v0.0.22...v0.0.23) (2026-02-04)
+
+
+### Features
+
+* enhance createRpcClient to support context parameter for dynamic headers ([ae8a8d2](https://github.com/bacali95/typesafe-rpc/commit/ae8a8d289c7857aeb79e34aa8ce66627b5a0419d))
+
 ### [0.0.22](https://github.com/bacali95/typesafe-rpc/compare/v0.0.21...v0.0.22) (2026-02-03)
 
 ### [0.0.21](https://github.com/bacali95/typesafe-rpc/compare/v0.0.20...v0.0.21) (2026-02-03)
