@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.26](https://github.com/bacali95/typesafe-rpc/compare/v0.0.25...v0.0.26) (2026-02-04)
+
+
+### Bug Fixes
+
+* improve error handling in fetchData function to differentiate between FetchError and Response based on environment ([9c564c9](https://github.com/bacali95/typesafe-rpc/commit/9c564c988a267ffa5d4ffa7bbf6f5851a75da016))
+
 ### [0.0.25](https://github.com/bacali95/typesafe-rpc/compare/v0.0.24...v0.0.25) (2026-02-04)
 
 
