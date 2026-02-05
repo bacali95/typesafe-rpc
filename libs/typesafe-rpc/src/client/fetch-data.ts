@@ -30,7 +30,7 @@ export async function fetchData<T>(
     if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
       throw new FetchError(key, message, response.status, data);
     }
-    throw new Response(error, { status: response.status });
+    throw new Response(error, { status: response.status, headers: response.headers });
   }
 
   return response.json();
