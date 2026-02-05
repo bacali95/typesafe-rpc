@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.27](https://github.com/bacali95/typesafe-rpc/compare/v0.0.26...v0.0.27) (2026-02-05)
+
+
+### Bug Fixes
+
+* include response headers in the Response object thrown in fetchData function for improved error handling ([55762ce](https://github.com/bacali95/typesafe-rpc/commit/55762ce342fc4dd4cbdf5ed22bd3622b4d0c95b6))
+
 ### [0.0.26](https://github.com/bacali95/typesafe-rpc/compare/v0.0.25...v0.0.26) (2026-02-04)
 
 
