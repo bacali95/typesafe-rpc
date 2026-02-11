@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.28](https://github.com/bacali95/typesafe-rpc/compare/v0.0.27...v0.0.28) (2026-02-11)
+
+
+### Features
+
+* integrate Zod for parameter validation in Route class and enhance error responses ([4ddc249](https://github.com/bacali95/typesafe-rpc/commit/4ddc249a80ff4ec5e9812e5b763e455922f534cc))
+
 ### [0.0.27](https://github.com/bacali95/typesafe-rpc/compare/v0.0.26...v0.0.27) (2026-02-05)
 
 
