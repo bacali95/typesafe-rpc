@@ -17,18 +17,19 @@ export async function fetchData<T>(
 
   if (!response.ok) {
     const error = await response.text();
-    let key, message, data;
+    let key, message, data, issues;
     try {
       const parsedData = JSON.parse(error);
       key = parsedData.key || 'internalError';
       message = parsedData.message || 'Internal Server Error';
+      issues = parsedData.issues || [];
       data = parsedData.data;
     } catch {
       key = 'internalError';
       message = error;
     }
     if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
-      throw new FetchError(key, message, response.status, data);
+      throw new FetchError(key, message, response.status, data, issues);
     }
     throw new Response(error, { status: response.status, headers: response.headers });
   }

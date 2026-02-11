@@ -25,7 +25,13 @@ export async function createRpcHandler<T extends RpcSchema, Context extends Base
   };
 }) {
   if (context.request.method !== 'POST') {
-    throw new Response(JSON.stringify({ message: 'Method not allowed' }), { status: 405 });
+    throw new Response(
+      JSON.stringify({
+        key: 'methodNotAllowed',
+        message: 'Method not allowed',
+      }),
+      { status: 405 },
+    );
   }
 
   const now = performance.now();
@@ -42,7 +48,13 @@ export async function createRpcHandler<T extends RpcSchema, Context extends Base
       !operations[entity][operation] ||
       typeof operations[entity][operation] !== 'function'
     ) {
-      throw new Response(JSON.stringify({ message: 'Not implemented' }), { status: 501 });
+      throw new Response(
+        JSON.stringify({
+          key: 'notImplemented',
+          message: 'Not implemented',
+        }),
+        { status: 501 },
+      );
     }
 
     const handler = operations[entity][operation] as Handler<any, any, any>;

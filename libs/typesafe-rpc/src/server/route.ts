@@ -42,7 +42,14 @@ export class Route<Params extends object, Context extends BaseContext> implement
       if (this.zodSchema) {
         const parsedParams = this.zodSchema.safeParse(args.params);
         if (!parsedParams.success) {
-          throw new Response(JSON.stringify({ message: 'Invalid parameters' }), { status: 400 });
+          throw new Response(
+            JSON.stringify({
+              key: 'badRequest',
+              message: 'Bad Request',
+              issues: parsedParams.error.issues,
+            }),
+            { status: 400 },
+          );
         }
       }
 
