@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.29](https://github.com/bacali95/typesafe-rpc/compare/v0.0.28...v0.0.29) (2026-02-11)
+
+
+### Features
+
+* enhance error handling by including error keys and issues in responses across fetchData, createRpcHandler, and Route classes ([d704e53](https://github.com/bacali95/typesafe-rpc/commit/d704e53a751b2e145e96ae25a19deeb2b50b2298))
+
 ### [0.0.28](https://github.com/bacali95/typesafe-rpc/compare/v0.0.27...v0.0.28) (2026-02-11)
 
 
