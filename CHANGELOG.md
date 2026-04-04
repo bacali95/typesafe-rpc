@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.30](https://github.com/bacali95/typesafe-rpc/compare/v0.0.29...v0.0.30) (2026-04-04)
+
+
+### Features
+
+* add support for file uploads in RPC client and server handlers, enhancing data handling with multipart/form-data processing ([bd0051a](https://github.com/bacali95/typesafe-rpc/commit/bd0051a176ac5312daa7e741360acb36d82e8f52))
+
 ### [0.0.29](https://github.com/bacali95/typesafe-rpc/compare/v0.0.28...v0.0.29) (2026-02-11)
 
 
