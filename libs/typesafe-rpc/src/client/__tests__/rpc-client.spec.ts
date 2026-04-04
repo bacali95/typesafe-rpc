@@ -1,5 +1,5 @@
-import { createRpcClient } from '../rpc-client';
 import { fetchData } from '../fetch-data';
+import { createRpcClient } from '../rpc-client';
 
 jest.mock('../fetch-data', () => ({
   fetchData: jest.fn().mockResolvedValue({ result: 'ok' }),
@@ -25,7 +25,9 @@ describe('createRpcClient', () => {
       const { url, method, options } = getLastCallOptions();
       expect(url).toBe('http://localhost/rpc?user::get');
       expect(method).toBe('POST');
-      expect(options?.body).toBe(JSON.stringify({ entity: 'user', operation: 'get', params: { id: 1 } }));
+      expect(options?.body).toBe(
+        JSON.stringify({ entity: 'user', operation: 'get', params: { id: 1 } }),
+      );
     });
 
     it('should send JSON when params is a plain object with no files', async () => {
@@ -122,7 +124,10 @@ describe('createRpcClient', () => {
         Authorization: `Bearer ${context?.token}`,
       }));
 
-      await (client as any).user.get({ id: 1 }, undefined, { token: 'abc', request: {} as Request });
+      await (client as any).user.get({ id: 1 }, undefined, {
+        token: 'abc',
+        request: {} as Request,
+      });
 
       const { options } = getLastCallOptions();
       expect(options?.headers).toEqual({ Authorization: 'Bearer abc' });

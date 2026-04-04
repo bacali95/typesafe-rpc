@@ -75,7 +75,10 @@ export async function createRpcHandler<T extends RpcSchema, Context extends Base
 async function getBody(request: Request | Express.Request): Promise<any> {
   if (request instanceof Request) {
     const contentType = request.headers.get('content-type') ?? '';
-    if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
+    if (
+      contentType.includes('multipart/form-data') ||
+      contentType.includes('application/x-www-form-urlencoded')
+    ) {
       const formData = await request.formData();
 
       const entity = formData.get('entity');
@@ -105,7 +108,10 @@ async function getBody(request: Request | Express.Request): Promise<any> {
   }
   // Express.Request
   const contentType = (request.headers as Record<string, string>)['content-type'] ?? '';
-  if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
+  if (
+    contentType.includes('multipart/form-data') ||
+    contentType.includes('application/x-www-form-urlencoded')
+  ) {
     const { entity, operation, params: rawParams } = request.body ?? {};
 
     let params: Record<string, any> = {};

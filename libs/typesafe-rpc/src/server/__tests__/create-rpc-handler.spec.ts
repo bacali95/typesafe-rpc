@@ -111,9 +111,7 @@ describe('createRpcHandler', () => {
       const request = makeFormDataRequest(formData);
       await createRpcHandler({ context: { request }, operations });
 
-      expect(mockGet).toHaveBeenCalledWith(
-        expect.objectContaining({ params: { id: 42 } }),
-      );
+      expect(mockGet).toHaveBeenCalledWith(expect.objectContaining({ params: { id: 42 } }));
     });
 
     it('should merge a top-level File field into params', async () => {
@@ -157,9 +155,7 @@ describe('createRpcHandler', () => {
       const request = makeFormDataRequest(formData);
       await createRpcHandler({ context: { request }, operations });
 
-      expect(mockGet).toHaveBeenCalledWith(
-        expect.objectContaining({ params: {} }),
-      );
+      expect(mockGet).toHaveBeenCalledWith(expect.objectContaining({ params: {} }));
     });
   });
 
@@ -171,13 +167,15 @@ describe('createRpcHandler', () => {
 
       await createRpcHandler({ context: { request }, operations });
 
-      expect(mockGet).toHaveBeenCalledWith(
-        expect.objectContaining({ params: { id: 42 } }),
-      );
+      expect(mockGet).toHaveBeenCalledWith(expect.objectContaining({ params: { id: 42 } }));
     });
 
     it('should merge files from req.files (multer any) into params', async () => {
-      const multerFile = { fieldname: 'avatar', originalname: 'avatar.png', buffer: Buffer.from('img') };
+      const multerFile = {
+        fieldname: 'avatar',
+        originalname: 'avatar.png',
+        buffer: Buffer.from('img'),
+      };
       const request = makeExpressRequest({
         body: { entity: 'user', operation: 'upload', params: JSON.stringify({ name: 'John' }) },
         files: [multerFile],
@@ -191,7 +189,11 @@ describe('createRpcHandler', () => {
     });
 
     it('should merge files from req.files (multer fields) into params', async () => {
-      const multerFile = { fieldname: 'avatar', originalname: 'avatar.png', buffer: Buffer.from('img') };
+      const multerFile = {
+        fieldname: 'avatar',
+        originalname: 'avatar.png',
+        buffer: Buffer.from('img'),
+      };
       const request = makeExpressRequest({
         body: { entity: 'user', operation: 'upload', params: JSON.stringify({ name: 'John' }) },
         files: { avatar: [multerFile] },
@@ -239,9 +241,7 @@ describe('createRpcHandler', () => {
 
       await createRpcHandler({ context: { request }, operations });
 
-      expect(mockGet).toHaveBeenCalledWith(
-        expect.objectContaining({ params: { id: 99 } }),
-      );
+      expect(mockGet).toHaveBeenCalledWith(expect.objectContaining({ params: { id: 99 } }));
     });
   });
 
