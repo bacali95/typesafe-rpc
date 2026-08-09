@@ -8,7 +8,9 @@
     "lint": "nx run-many -t lint",
     "prettier:check": "nx format:check",
     "prettier:fix": "nx format:write",
-    "release": "standard-version"
+    "release": "standard-version --path libs/typesafe-rpc",
+    "release:rpc": "standard-version --path libs/typesafe-rpc",
+    "release:ws": "standard-version --path libs/typesafe-ws --packageFiles libs/typesafe-ws/package.json --bumpFiles libs/typesafe-ws/package.json --infile libs/typesafe-ws/CHANGELOG.md --tag-prefix typesafe-ws-v --commit-all"
   },
   "private": true,
   "dependencies": {
@@ -53,6 +55,7 @@
   "standard-version": {
     "commitAll": true,
     "packageFiles": "libs/typesafe-rpc/package.json",
-    "bumpFiles": "libs/typesafe-rpc/package.json"
+    "bumpFiles": "libs/typesafe-rpc/package.json",
+    "path": "libs/typesafe-rpc"
   }
 }

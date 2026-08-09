@@ -4,8 +4,10 @@ on:
   push:
     tags:
       - v*
+      - typesafe-ws-v*
 
-concurrency: ${{ github.ref }}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
 
 permissions:
   contents: read
@@ -21,6 +23,15 @@ jobs:
 
       - uses: ./.github/actions/setup-environment
 
+      - name: Determine package to publish 📦
+        id: package
+        run: |
+          if [[ "${{ github.ref_name }}" == typesafe-ws-v* ]]; then
+            echo "name=typesafe-ws" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=typesafe-rpc" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Lint the code 🕵
         run: bun run lint
 
@@ -35,6 +46,15 @@ jobs:
 
       - name: Publish the library 🚀
         run: |
-          cp LICENCE README.md dist/libs/typesafe-rpc
-          cd dist/libs/typesafe-rpc
+          dist="dist/libs/${{ steps.package.outputs.name }}"
+          readme="libs/${{ steps.package.outputs.name }}/README.md"
+
+          cp LICENCE "$dist"
+          if [ -f "$readme" ]; then
+            cp "$readme" "$dist"
+          else
+            cp README.md "$dist"
+          fi
+
+          cd "$dist"
           npm publish --tag latest --access public
