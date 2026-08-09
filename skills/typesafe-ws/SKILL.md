@@ -1,6 +1,6 @@
 ---
 name: typesafe-ws
-description: Type-safe WebSocket subscriptions library for Node/TS, companion to typesafe-rpc. Defines WsSchema (entity/operation/subscription handler), createWsHandler (server), createWsClient (client), Route and middlewares for subscriptions. Use when editing typesafe-ws, adding subscription operations, wiring a WebSocket server or client, or implementing subscription handlers and middlewares in this repo.
+description: Type-safe WebSocket subscriptions library for Node/TS, companion to typesafe-rpc. Defines WsSchema (entity/operation/subscription handler), createWsHandler (server), createWsServer (typed cross-connection push handle for other backend code), createWsClient (client), Route and middlewares for subscriptions. Use when editing typesafe-ws, adding subscription operations, wiring a WebSocket server or client, pushing data into subscriptions from outside a handler, or implementing subscription handlers and middlewares in this repo.
 ---
 
 # typesafe-ws
@@ -72,6 +72,27 @@ wss.on('connection', (socket) => {
 - `unsubscribe` and socket close both call `generator.return()` on the subscription (not awaited, so a handler mid-await on a long-lived event doesn't hang cleanup) — write cleanup (timers, unsubscribing from a broker, etc.) in a `finally` block around the `yield` loop.
 - `route(schema).subscribe(fn)` handlers throw the same 400 `Response` shape as `typesafe-rpc`'s `.handle()` on zod validation failure; `defaultErrorHandler` normalizes it into the WS error frame automatically.
 - Unknown entity/operation → `{ key: 'notImplemented' }` error frame.
+- Optional `server?: WsServer<T>` config field wires this connection's subscriptions into a shared `createWsServer()` instance (see below) so other backend code can push into them.
+
+## Server: createWsServer (push from outside a handler)
+
+From `typesafe-ws/server`. Returns a typed, schema-shaped object whose leaves are `{ emit(params, data): void }` — for code that isn't a subscription handler (a REST controller, a queue consumer, a cron job) to push data into active subscriptions. Create one instance and pass it to every `createWsHandler({ server })` call so it can see subscriptions across every connection:
+
+```typescript
+import { createWsServer } from 'typesafe-ws/server';
+
+export const wsServer = createWsServer<typeof wsSchema>();
+
+// elsewhere, wired into every connection:
+createWsHandler({ socket, context, operations: wsSchema, server: wsServer });
+
+// elsewhere still, e.g. a REST controller:
+wsServer.messages.onNew.emit({ roomId: 'general' }, message);
+```
+
+- `emit(params, data)` delivers to every subscription (any connection) whose `params` deep-equal the ones passed in. It does not call the subscription handler function — `emit` and the handler's own `yield`s are two independent ways to feed the same subscription id, and both can be used together.
+- A handler that's *only* ever fed via `emit` has nothing to `yield` — have it wait until torn down by unsubscribe/close instead: `async function* () { await new Promise<never>(() => {}); }`.
+- Matching is exact deep-equality on `params`, not partial/key-based matching.
 
 ## Client: createWsClient
 
@@ -148,7 +169,7 @@ class WsError extends Error {
 
 - Lives alongside `typesafe-rpc` in this Nx monorepo (`libs/typesafe-ws/`), same three-entry-point pattern (`typesafe-ws`, `typesafe-ws/server`, `typesafe-ws/client`).
 - `shared/`: `ws-types.ts` (`SubscriptionHandler`/`WsSchema`/wire protocol message types).
-- `server/`: `create-ws-handler.ts`, `route.ts`, `middlewares.ts`, `ws-socket.ts` (the `WsSocket` interface), `default-error-handler.ts`, `hook-types.ts`, `operation-lookup.ts`.
+- `server/`: `create-ws-handler.ts`, `route.ts`, `middlewares.ts`, `ws-socket.ts` (the `WsSocket` interface), `ws-server.ts` (`createWsServer`, the cross-connection push handle), `default-error-handler.ts`, `hook-types.ts`, `operation-lookup.ts`.
 - `client/`: `ws-client.ts` (`createWsClient` + the Proxy), `ws-transport.ts`, `ws-error.ts`.
 - No WebSocket library (`ws`, `socket.io`, etc.) is a runtime dependency for this package — it's a devDependency for its own tests only. Server-side code must stay framework-agnostic against `WsSocket`.
 - This package intentionally does **not** share a library with `typesafe-rpc` — each package keeps its own small, independent copy of the common context/middleware/hook plumbing (BaseContext/Args/Middleware/orMiddleware/Hooks/HookArgs/resolveOperation) rather than a shared internal Nx lib, because Nx's rollup+tsc declaration bundling in this workspace can't produce portable `.d.ts` output across a cross-project source dependency (it leaks monorepo-internal `dist/` paths into the published types). Don't reintroduce a shared lib for this without solving that first.

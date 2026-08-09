@@ -9,6 +9,7 @@ A type-safe WebSocket subscriptions library for Node.js, TypeScript, and React a
 - **Full TypeScript Support**: Subscription payloads are inferred end-to-end from server handler to client observer
 - **Subscriptions Only**: A focused, single-purpose transport for server-push streams — plain request/response calls stay on `typesafe-rpc`/HTTP
 - **Multiplexed Connection**: Many concurrent subscriptions share one WebSocket, correlated by request id
+- **Server-Side Push**: A typed handle onto every active subscription, for other parts of the backend (REST controllers, queue consumers, cron jobs, ...) to push data into without the subscription handler itself producing it
 - **Middleware Support**: Same `.middleware()`/zod-validation chain as `typesafe-rpc`'s `route()`
 - **Framework-Agnostic Transport**: No WebSocket library is a runtime dependency — adapt whatever socket you have (`ws`, Bun's native `WebSocket`, uWebSockets.js, Deno, ...)
 - **Reconnect Support**: Optional automatic reconnect with active-subscription resubscription
@@ -84,7 +85,54 @@ wss.on('connection', (socket) => {
 server.listen(3001);
 ```
 
-### 3. Create the Client
+### 3. Push Data From Elsewhere in the Backend (Optional)
+
+If a subscription's data comes from somewhere else in your app rather than the handler itself — a REST controller, a queue consumer, a cron job — wire up a `WsServer` handle and pass it to every `createWsHandler` call:
+
+```typescript
+// ws-server-handle.ts
+import { createWsServer } from 'typesafe-ws/server';
+
+import { wsSchema } from './ws-schema';
+
+export const wsServer = createWsServer<typeof wsSchema>();
+```
+
+```typescript
+// ws-server.ts
+createWsHandler({
+  context: { request: {} as Request },
+  operations: wsSchema,
+  server: wsServer,
+  socket: {
+    /* ... */
+  },
+});
+```
+
+Now any other module can push into matching subscriptions without going through the handler:
+
+```typescript
+// messages-controller.ts
+import { wsServer } from './ws-server-handle';
+
+app.post('/rooms/:roomId/messages', (req, res) => {
+  const message = saveMessage(req.params.roomId, req.body);
+  wsServer.messages.onNew.emit({ roomId: req.params.roomId }, message);
+  res.sendStatus(201);
+});
+```
+
+`emit(params, data)` delivers `data` to every subscription whose `params` deep-equal the ones passed in, across every connection registered against that `wsServer` instance — it does not invoke the subscription handler function at all. A handler that's only ever fed this way never needs to yield on its own; have it simply wait until the subscription ends:
+
+```typescript
+const onNewMessage: SubscriptionHandler<{ roomId: string }, BaseContext, Message> =
+  async function* () {
+    await new Promise<never>(() => {}); // resolved only by unsubscribe/close, which tears the generator down
+  };
+```
+
+### 4. Create the Client
 
 ```typescript
 // ws-client.ts
@@ -107,7 +155,7 @@ const unsubscribe = client.messages.onNew(
 unsubscribe();
 ```
 
-### 4. Use in React
+### 5. Use in React
 
 ```typescript
 // React component
@@ -186,6 +234,7 @@ function createWsHandler<T extends WsSchema, Context extends BaseContext>(config
     postCall?: (context: Context, performance: number) => void;
     error?: (context: Context, performance: number, error: any) => void;
   };
+  server?: WsServer<T>;
 }): { close: () => void };
 ```
 
@@ -199,6 +248,24 @@ interface WsSocket {
   onClose(listener: () => void): void;
 }
 ```
+
+#### `createWsServer<T>()`
+
+Returns a typed handle onto every active subscription for a `WsSchema`, for parts of the backend outside the subscription handlers to push data into. Create one instance, share it across every `createWsHandler` call (via the `server` option) so it can see every connection's subscriptions:
+
+```typescript
+function createWsServer<T extends WsSchema>(): WsServer<T>;
+
+type WsServer<T extends WsSchema> = {
+  [entity]: {
+    [operation]: {
+      emit(params: Params, data: Result): void;
+    };
+  };
+};
+```
+
+`emit(params, data)` sends a `data` frame to every subscription across every connection whose `params` deep-equal the ones passed in. It does not invoke the subscription handler function — the handler and `emit` are two independent ways to feed the same subscription id.
 
 **Wire protocol** (JSON frames, correlated by `id`): client sends `{ type: 'subscribe', id, entity, operation, params }` or `{ type: 'unsubscribe', id }`; server replies with a stream of `{ type: 'data', id, data }` ending in `{ type: 'complete', id }` or `{ type: 'error', id, error }`.
 

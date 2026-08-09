@@ -3,6 +3,7 @@ import * as z from 'zod';
 import type { WsServerMessage } from '../../shared';
 import { createWsHandler } from '../create-ws-handler';
 import { route } from '../route';
+import { createWsServer } from '../ws-server';
 import type { WsSocket } from '../ws-socket';
 
 function makeSocket() {
@@ -330,5 +331,77 @@ describe('createWsHandler', () => {
       { type: 'data', id: 'sub-b', data: 'b' },
       { type: 'complete', id: 'sub-b' },
     ]);
+  });
+
+  it('delivers frames pushed from outside via a shared server, not just from the handler', async () => {
+    const wsServer = createWsServer<any>();
+    const { socket, dispatch } = makeSocket();
+    const operations = {
+      messages: {
+        onNew: async function* () {
+          await new Promise<never>(() => {
+            // never resolves
+          });
+          // eslint-disable-next-line no-unreachable
+          yield undefined;
+        },
+      },
+    };
+
+    createWsHandler({
+      socket,
+      context: { request: {} as Request },
+      operations,
+      server: wsServer,
+    });
+    await dispatch({
+      type: 'subscribe',
+      id: '1',
+      entity: 'messages',
+      operation: 'onNew',
+      params: { roomId: 'general' },
+    });
+
+    wsServer.messages.onNew.emit({ roomId: 'other' }, { text: 'ignored' });
+    wsServer.messages.onNew.emit({ roomId: 'general' }, { text: 'hi' });
+
+    await waitFor(() => sentMessages(socket).length === 1);
+
+    expect(sentMessages(socket)).toEqual([{ type: 'data', id: '1', data: { text: 'hi' } }]);
+  });
+
+  it('stops delivering server-pushed frames after unsubscribe', async () => {
+    const wsServer = createWsServer<any>();
+    const { socket, dispatch } = makeSocket();
+    const operations = {
+      messages: {
+        onNew: async function* () {
+          await new Promise<never>(() => {
+            // never resolves
+          });
+          // eslint-disable-next-line no-unreachable
+          yield undefined;
+        },
+      },
+    };
+
+    createWsHandler({
+      socket,
+      context: { request: {} as Request },
+      operations,
+      server: wsServer,
+    });
+    await dispatch({
+      type: 'subscribe',
+      id: '1',
+      entity: 'messages',
+      operation: 'onNew',
+      params: {},
+    });
+    await dispatch({ type: 'unsubscribe', id: '1' });
+
+    wsServer.messages.onNew.emit({}, { text: 'too late' });
+
+    expect(sentMessages(socket)).toEqual([]);
   });
 });
