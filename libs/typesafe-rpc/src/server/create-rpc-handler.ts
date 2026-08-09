@@ -1,13 +1,9 @@
 import type Express from 'express';
 
 import type { BaseContext, Handler, RpcSchema } from '../shared';
-
-type HookArgs<T extends RpcSchema, Context extends BaseContext> = {
-  entity: keyof T;
-  operation: keyof T[keyof T];
-  params: any;
-  context: Context;
-};
+import type { HookArgs, Hooks } from './hook-types';
+import { invokeOperation } from './invoke-operation';
+import { resolveOperation } from './operation-lookup';
 
 export async function createRpcHandler<T extends RpcSchema, Context extends BaseContext>({
   context,
@@ -18,11 +14,7 @@ export async function createRpcHandler<T extends RpcSchema, Context extends Base
   context: Context;
   operations: T;
   errorHandler?: (error: any) => Response;
-  hooks?: {
-    preCall?: (args: HookArgs<T, Context>) => void;
-    postCall?: (args: HookArgs<T, Context>, performance: number) => void;
-    error?: (args: HookArgs<T, Context>, performance: number, error: any) => void;
-  };
+  hooks?: Hooks<T, Context>;
 }) {
   if (context.request.method !== 'POST') {
     throw new Response(
@@ -42,34 +34,36 @@ export async function createRpcHandler<T extends RpcSchema, Context extends Base
     params: any;
   };
 
-  try {
-    if (
-      !operations[entity] ||
-      !operations[entity][operation] ||
-      typeof operations[entity][operation] !== 'function'
-    ) {
-      throw new Response(
-        JSON.stringify({
-          key: 'notImplemented',
-          message: 'Not implemented',
-        }),
-        { status: 501 },
-      );
-    }
+  const hookArgs: HookArgs<T, Context> = { entity, operation, params, context };
 
-    const handler = operations[entity][operation] as Handler<any, any, any>;
+  const handler = resolveOperation(operations, entity, operation);
 
-    hooks?.preCall?.({ entity, operation, params, context });
-
-    const result = await handler({ params, context });
-
-    hooks?.postCall?.({ entity, operation, params, context }, performance.now() - now);
-
-    return result;
-  } catch (error: any) {
-    hooks?.error?.({ entity, operation, params, context }, performance.now() - now, error);
+  if (!handler) {
+    const error = new Response(
+      JSON.stringify({
+        key: 'notImplemented',
+        message: 'Not implemented',
+      }),
+      { status: 501 },
+    );
+    hooks?.error?.(hookArgs, performance.now() - now, error);
     throw errorHandler?.(error) ?? new Response('Internal server error', { status: 500 });
   }
+
+  const outcome = await invokeOperation({
+    handler: handler as Handler<any, any, any>,
+    entity,
+    operation,
+    params,
+    context,
+    hooks,
+  });
+
+  if (!outcome.ok) {
+    throw errorHandler?.(outcome.error) ?? new Response('Internal server error', { status: 500 });
+  }
+
+  return outcome.result;
 }
 
 async function getBody(request: Request | Express.Request): Promise<any> {

@@ -29,6 +29,7 @@
     "@types/express": "^5.0.6",
     "@types/jest": "30.0.0",
     "@types/node": "^24.10.3",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "8.49.0",
     "@typescript-eslint/parser": "8.49.0",
     "@typescript-eslint/utils": "8.49.0",
@@ -46,7 +47,8 @@
     "standard-version": "^9.5.0",
     "ts-jest": "29.4.6",
     "ts-node": "10.9.2",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "ws": "^8.21.3"
   },
   "standard-version": {
     "commitAll": true,
