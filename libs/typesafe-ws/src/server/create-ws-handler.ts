@@ -9,11 +9,13 @@ import type {
 import { defaultErrorHandler } from './default-error-handler';
 import type { Hooks } from './hook-types';
 import { resolveOperation } from './operation-lookup';
+import { type WsServer, getWsServerRegistry } from './ws-server';
 import type { WsSocket } from './ws-socket';
 
 type ActiveSubscription = {
   generator: AsyncGenerator<any, void, void>;
   unsubscribed: boolean;
+  unregisterFromServer?: () => void;
 };
 
 export function createWsHandler<T extends WsSchema, Context extends BaseContext>(config: {
@@ -22,9 +24,11 @@ export function createWsHandler<T extends WsSchema, Context extends BaseContext>
   operations: T;
   errorHandler?: (error: any) => WsErrorPayload | Promise<WsErrorPayload>;
   hooks?: Hooks<T, Context>;
+  server?: WsServer<T>;
 }): { close: () => void } {
-  const { socket, context, operations, hooks } = config;
+  const { socket, context, operations, hooks, server } = config;
   const errorHandler = config.errorHandler ?? defaultErrorHandler;
+  const registry = server ? getWsServerRegistry(server) : undefined;
   const activeSubscriptions = new Map<string, ActiveSubscription>();
 
   const send = (message: WsServerMessage) => socket.send(JSON.stringify(message));
@@ -42,6 +46,7 @@ export function createWsHandler<T extends WsSchema, Context extends BaseContext>
       if (entry) {
         entry.unsubscribed = true;
         activeSubscriptions.delete(message.id);
+        entry.unregisterFromServer?.();
         // Not awaited: a subscription handler may be mid-await on a long-lived
         // internal event, and generator.return() only resolves once that
         // pending await settles. The `unsubscribed` flag above already stops
@@ -76,6 +81,16 @@ export function createWsHandler<T extends WsSchema, Context extends BaseContext>
       context,
     });
     const entry: ActiveSubscription = { generator, unsubscribed: false };
+    if (registry) {
+      entry.unregisterFromServer = registry.register(
+        message.entity,
+        message.operation,
+        message.params,
+        (data) => {
+          if (!entry.unsubscribed) send({ type: 'data', id: message.id, data });
+        },
+      );
+    }
     activeSubscriptions.set(message.id, entry);
     const start = performance.now();
 
@@ -96,6 +111,7 @@ export function createWsHandler<T extends WsSchema, Context extends BaseContext>
         }
       } finally {
         activeSubscriptions.delete(message.id);
+        entry.unregisterFromServer?.();
       }
     })();
   });
@@ -103,6 +119,7 @@ export function createWsHandler<T extends WsSchema, Context extends BaseContext>
   socket.onClose(() => {
     for (const entry of activeSubscriptions.values()) {
       entry.unsubscribed = true;
+      entry.unregisterFromServer?.();
       void entry.generator.return(undefined);
     }
     activeSubscriptions.clear();
