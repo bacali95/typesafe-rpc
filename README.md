@@ -42,7 +42,7 @@ type UserContext = BaseContext & {
 type UserParams = { id: string };
 type UserResult = { id: string; name: string; email: string };
 
-const getUserHandler: Handler<UserParams, UserContext, UserResult, {}> = async ({
+const getUserHandler: Handler<UserParams, UserContext, UserResult> = async ({
   params,
   context,
 }) => {
@@ -141,6 +141,107 @@ function UserProfile({ userId }: { userId: string }) {
 }
 ```
 
+### 5. Add WebSocket Support (optional)
+
+WebSocket support is opt-in and lives alongside the HTTP transport: it lets you (a) call your existing query/mutation-style operations over a single persistent connection instead of one request per call, and (b) declare **subscriptions** — operations that push a stream of values from the server to the client (e.g. live updates, notifications, ticks).
+
+A subscription handler is just an `async function*` (async generator) instead of an `async function`:
+
+```typescript
+// api-schema.ts
+import * as z from 'zod';
+
+import type { BaseContext, Handler, SubscriptionHandler } from 'typesafe-rpc';
+import { route } from 'typesafe-rpc/server';
+
+type MessageParams = { roomId: string };
+type Message = { id: string; text: string };
+
+// A plain async generator is a valid subscription handler:
+const onNewMessage: SubscriptionHandler<MessageParams, BaseContext, Message> = async function* ({
+  params,
+}) {
+  for await (const message of subscribeToRoom(params.roomId)) {
+    yield message;
+  }
+};
+
+// Or, with the same zod validation + middleware chain used by `.handle()`:
+const onNewMessageValidated = route(z.object({ roomId: z.string() })).subscribe(async function* ({
+  params,
+}) {
+  for await (const message of subscribeToRoom(params.roomId)) {
+    yield message;
+  }
+});
+
+export const apiSchema = {
+  users: {
+    getById: getUserHandler,
+  },
+  messages: {
+    onNew: onNewMessage,
+  },
+} as const;
+```
+
+Wire your WebSocket server into `createRpcWsHandler` by adapting it to the minimal `RpcWsSocket` interface (`send`/`close`/`onMessage`/`onClose`) — no WebSocket library is bundled with `typesafe-rpc`, so this works with `ws`, Bun's native `WebSocket`, uWebSockets.js, Deno, etc. Here's an example using [`ws`](https://www.npmjs.com/package/ws):
+
+```typescript
+// ws-server.ts
+import { createServer } from 'http';
+import { WebSocketServer } from 'ws';
+
+import { createRpcWsHandler } from 'typesafe-rpc/server';
+
+import { apiSchema } from './api-schema';
+
+const server = createServer();
+const wss = new WebSocketServer({ server });
+
+wss.on('connection', (socket) => {
+  createRpcWsHandler({
+    context: { request: {} as Request },
+    operations: apiSchema,
+    socket: {
+      send: (data) => socket.send(data),
+      close: (code, reason) => socket.close(code, reason),
+      onMessage: (listener) => socket.on('message', (data) => listener(data.toString())),
+      onClose: (listener) => socket.on('close', listener),
+    },
+  });
+});
+
+server.listen(3001);
+```
+
+On the client, pass an object with a `url` (instead of an endpoint string) to `createRpcClient`. Calls to regular operations work exactly like the HTTP client; calls to subscriptions take an observer and return an `unsubscribe` function:
+
+```typescript
+// ws-client.ts
+import { createRpcClient } from 'typesafe-rpc/client';
+
+import type { apiSchema } from './api-schema';
+
+const client = createRpcClient<typeof apiSchema>({ url: 'ws://localhost:3001' });
+
+// Regular calls work the same as over HTTP:
+const user = await client.users.getById({ id: '123' });
+
+// Subscriptions push values to an observer until you unsubscribe:
+const unsubscribe = client.messages.onNew(
+  { roomId: 'general' },
+  {
+    onData: (message) => console.log('New message:', message.text),
+    onError: (error) => console.error(error),
+    onComplete: () => console.log('Subscription ended'),
+  },
+);
+
+// later, e.g. in a React effect cleanup:
+unsubscribe();
+```
+
 ## 🔧 API Reference
 
 ### Core Types
@@ -153,20 +254,34 @@ type BaseContext = {
 };
 ```
 
-#### `Handler<Params, Context, Result, ExtraParams>`
+#### `Handler<Params, Context, Result>`
 
 ```typescript
-type Handler<Params, Context extends BaseContext, Result, ExtraParams> = (
-  args: Args<Params, Context, ExtraParams>,
+type Handler<Params, Context extends BaseContext, Result> = (
+  args: Args<Params, Context>,
 ) => Promise<Result>;
+```
+
+#### `SubscriptionHandler<Params, Context, Result>`
+
+A handler that pushes a stream of values instead of resolving once. Any `async function*` is a valid `SubscriptionHandler`.
+
+```typescript
+type SubscriptionHandler<Params, Context extends BaseContext, Result> = (
+  args: Args<Params, Context>,
+) => AsyncGenerator<Result, void, void>;
 ```
 
 #### `RpcSchema`
 
 ```typescript
+type Operation<Params, Context extends BaseContext, Result> =
+  | Handler<Params, Context, Result>
+  | SubscriptionHandler<Params, Context, Result>;
+
 type RpcSchema = {
   [entity: string]: {
-    [operation: string]: Handler<any, any, any, any>;
+    [operation: string]: Operation<any, any, any>;
   };
 };
 ```
@@ -175,7 +290,7 @@ type RpcSchema = {
 
 #### `createRpcHandler<T, Context>`
 
-Creates an RPC handler for processing requests.
+Creates an RPC handler for processing HTTP requests.
 
 ```typescript
 function createRpcHandler<T extends RpcSchema, Context extends BaseContext>({
@@ -195,46 +310,87 @@ function createRpcHandler<T extends RpcSchema, Context extends BaseContext>({
 }): Promise<Response>
 ```
 
-### Client API
+#### `createRpcWsHandler<T, Context>`
 
-#### `createRpcClient<T>(endpoint)`
-
-Creates a type-safe RPC client.
+Wires the same `operations` schema into a persistent WebSocket connection. Multiple calls and subscriptions are multiplexed over the one `socket`; `hooks` and error shapes match `createRpcHandler`.
 
 ```typescript
-function createRpcClient<T extends RpcSchema>(endpoint: string): RpcClient<T>;
+function createRpcWsHandler<T extends RpcSchema, Context extends BaseContext>(config: {
+  socket: RpcWsSocket;
+  context: Context;
+  operations: T;
+  errorHandler?: (error: any) => RpcWsErrorPayload | Promise<RpcWsErrorPayload>;
+  hooks?: {
+    preCall?: (context: Context) => void;
+    postCall?: (context: Context, performance: number) => void;
+    error?: (context: Context, performance: number, error: any) => void;
+  };
+}): { close: () => void };
 ```
 
-The returned client provides a proxy that matches your schema structure with full type safety.
+`RpcWsSocket` is the minimal interface any WebSocket implementation must be adapted to — `typesafe-rpc` does not depend on `ws`, `socket.io`, or any other WebSocket library:
+
+```typescript
+interface RpcWsSocket {
+  send(data: string): void;
+  close(code?: number, reason?: string): void;
+  onMessage(listener: (data: string) => void): void;
+  onClose(listener: () => void): void;
+}
+```
+
+### Client API
+
+#### `createRpcClient<T>(endpoint, headers?)`
+
+Creates a type-safe RPC client over HTTP.
+
+```typescript
+function createRpcClient<T extends RpcSchema, Context extends BaseContext = BaseContext>(
+  endpoint: string,
+  headers?: HeadersInit | ((context?: Context) => HeadersInit),
+): RpcClient<T>;
+```
+
+#### `createRpcClient<T>(options)`
+
+Creates a type-safe RPC client over WebSocket. Same `RpcClient<T>` proxy as the HTTP client, but operations declared as a `SubscriptionHandler` get a `(params, observer, signal?, context?) => Unsubscribe` call signature instead of `(params, signal?, context?) => Promise<Result>`.
+
+```typescript
+function createRpcClient<T extends RpcSchema>(options: {
+  url: string;
+  protocols?: string | string[];
+  WebSocketImpl?: typeof WebSocket; // inject e.g. Node's `ws` client outside browsers
+  reconnect?: boolean | { retries?: number; delayMs?: number | ((attempt: number) => number) };
+}): RpcClient<T>;
+```
+
+The returned client provides a proxy that matches your schema structure with full type safety, regardless of which overload created it.
+
+### Choosing HTTP vs WebSocket
+
+Use the HTTP transport (`createRpcHandler` / `createRpcClient(endpoint)`) for typical query/mutation traffic — it works anywhere `fetch` does, requires no persistent connection, and supports file uploads via `FormData`. Use the WebSocket transport (`createRpcWsHandler` / `createRpcClient({ url })`) when you need subscriptions (server-push/streaming), or want to multiplex many calls over one connection instead of one request per call. File uploads are not supported over the WebSocket transport — its frames are JSON-only.
 
 ### Middleware System
 
 ```typescript
 import type { Middleware } from 'typesafe-rpc';
+import { route } from 'typesafe-rpc/server';
 
-// Authentication middleware
-const authMiddleware: Middleware<any, BaseContext, {}, { user: { id: string } }> = async ({
-  context,
-}) => {
+// Authentication middleware: throw to reject the call, resolve to allow it through
+const authMiddleware: Middleware<any, BaseContext> = async ({ context }) => {
   const token = context.request.headers.get('Authorization');
   if (!token) throw new Response('Unauthorized', { status: 401 });
-
-  // Verify token and return user info
-  return { user: { id: 'user-123' } };
 };
 
-// Usage in handler
-const protectedHandler: Handler<
-  UserParams,
-  BaseContext,
-  UserResult,
-  { user: { id: string } }
-> = async ({ params, context, extraParams }) => {
-  // extraParams.user is now available with full type safety
-  return {
-    /* ... */
-  };
-};
+// Usage with route(): runs the middleware chain (and optional zod validation) before the handler
+const protectedHandler = route<UserParams, BaseContext>()
+  .middleware(authMiddleware)
+  .handle(async ({ params, context }) => {
+    return {
+      /* ... */
+    };
+  });
 ```
 
 ## 🛠️ Development
