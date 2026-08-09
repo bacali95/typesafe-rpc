@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.32](https://github.com/bacali95/typesafe-rpc/compare/v0.0.31...v0.0.32) (2026-08-09)
+
+
+### Features
+
+* add end-to-end type-safe WebSocket support ([#1](https://github.com/bacali95/typesafe-rpc/issues/1)) ([83c1c0f](https://github.com/bacali95/typesafe-rpc/commit/83c1c0f669d7e510a13862a94cb00be59b746f04))
+
 ### [0.0.31](https://github.com/bacali95/typesafe-rpc/compare/v0.0.30...v0.0.31) (2026-04-04)
 
 ### [0.0.30](https://github.com/bacali95/typesafe-rpc/compare/v0.0.29...v0.0.30) (2026-04-04)
