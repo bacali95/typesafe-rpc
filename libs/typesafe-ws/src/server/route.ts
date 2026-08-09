@@ -1,16 +1,18 @@
 import type { ZodType } from 'zod';
 
-import type { Args, BaseContext, Handler } from '../shared';
+import type { Args, BaseContext, SubscriptionHandler } from '../shared';
 import { type Middleware, orMiddleware } from './middlewares';
 
 export interface IRoute<Params, Context extends BaseContext> {
   middleware(...fns: Middleware<Params, Context>[]): IRoute<Params, Context>;
 
-  handle<Result>(fn: Handler<Params, Context, Result>): OverridableHandler<Params, Context, Result>;
+  subscribe<Result>(
+    fn: SubscriptionHandler<Params, Context, Result>,
+  ): OverridableSubscriptionHandler<Params, Context, Result>;
 }
 
-export interface OverridableHandler<Params, Context extends BaseContext, Result> {
-  (args: Args<Params, Context>): Promise<Result>;
+export interface OverridableSubscriptionHandler<Params, Context extends BaseContext, Result> {
+  (args: Args<Params, Context>): AsyncGenerator<Result, void, void>;
   overrideMiddlewares: (...middlewares: Middleware<Params, Context>[]) => this;
 }
 
@@ -30,16 +32,21 @@ export class Route<Params extends object, Context extends BaseContext> implement
     ] as Middleware<Params, Context>[]);
   }
 
-  handle<Output>(
-    fn: Handler<Params, Context, Output>,
-  ): OverridableHandler<Params, Context, Output> {
-    const result: OverridableHandler<Params, Context, Output> = async (args) => {
-      for (const middleware of this.middlewares) {
-        await middleware(args as Args<Params, Context>);
+  subscribe<Output>(
+    fn: SubscriptionHandler<Params, Context, Output>,
+  ): OverridableSubscriptionHandler<Params, Context, Output> {
+    const zodSchema = this.zodSchema;
+    let middlewares = this.middlewares;
+
+    const result = async function* (
+      args: Args<Params, Context>,
+    ): AsyncGenerator<Output, void, void> {
+      for (const middleware of middlewares) {
+        await middleware(args);
       }
 
-      if (this.zodSchema) {
-        const parsedParams = this.zodSchema.safeParse(args.params);
+      if (zodSchema) {
+        const parsedParams = zodSchema.safeParse(args.params);
         if (!parsedParams.success) {
           throw new Response(
             JSON.stringify({
@@ -52,11 +59,11 @@ export class Route<Params extends object, Context extends BaseContext> implement
         }
       }
 
-      return fn(args as Args<Params, Context>);
-    };
+      yield* fn(args);
+    } as OverridableSubscriptionHandler<Params, Context, Output>;
 
-    result.overrideMiddlewares = (...middlewares) => {
-      this.middlewares = [...middlewares];
+    result.overrideMiddlewares = (...newMiddlewares) => {
+      middlewares = [...newMiddlewares];
 
       return result;
     };

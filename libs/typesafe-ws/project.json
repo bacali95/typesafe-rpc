@@ -1,0 +1,41 @@
+{
+  "name": "typesafe-ws",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/typesafe-ws/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/rollup:rollup",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "project": "libs/typesafe-ws/package.json",
+        "outputPath": "dist/libs/typesafe-ws",
+        "main": "libs/typesafe-ws/src/index.ts",
+        "additionalEntryPoints": [
+          "libs/typesafe-ws/src/server.ts",
+          "libs/typesafe-ws/src/client.ts"
+        ],
+        "tsConfig": "libs/typesafe-ws/tsconfig.lib.json",
+        "format": ["esm"],
+        "compiler": "tsc",
+        "external": "all",
+        "generateExportsField": true,
+        "rollupConfig": "libs/typesafe-ws/rollup.config.cjs",
+        "babelUpwardRootMode": true,
+        "updateBuildableProjectDepsInPackageJson": true
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/typesafe-ws/jest.config.ts"
+      }
+    }
+  }
+}

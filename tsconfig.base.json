@@ -15,7 +15,8 @@
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "typesafe-rpc": ["libs/typesafe-rpc/src/index.ts"]
+      "typesafe-rpc": ["libs/typesafe-rpc/src/index.ts"],
+      "typesafe-ws": ["libs/typesafe-ws/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

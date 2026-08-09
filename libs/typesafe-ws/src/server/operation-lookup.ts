@@ -1,10 +1,10 @@
-import type { Handler, RpcSchema } from '../shared';
+import type { SubscriptionHandler, WsSchema } from '../shared';
 
-export function resolveOperation<T extends RpcSchema>(
+export function resolveOperation<T extends WsSchema>(
   operations: T,
   entity: PropertyKey,
   operation: PropertyKey,
-): Handler<any, any, any> | undefined {
+): SubscriptionHandler<any, any, any> | undefined {
   const fn = (operations as any)?.[entity as any]?.[operation as any];
 
   return typeof fn === 'function' ? fn : undefined;

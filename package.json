@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "build": "nx run typesafe-rpc:build",
-    "test": "nx run typesafe-rpc:test --coverage",
-    "lint": "nx run typesafe-rpc:lint",
+    "build": "nx run-many -t build",
+    "test": "nx run-many -t test --coverage",
+    "lint": "nx run-many -t lint",
     "prettier:check": "nx format:check",
     "prettier:fix": "nx format:write",
     "release": "standard-version"

@@ -1,21 +1,39 @@
-import type { RpcWsServerMessage } from '../shared';
-import type { RpcClientTransport, SubscriptionObserver, Unsubscribe } from './rpc-client-transport';
+import type { WsServerMessage } from '../shared';
 import { WsError } from './ws-error';
 
-export type RpcWsClientOptions = {
+export type SubscriptionObserver<Result> = {
+  onData: (data: Result) => void;
+  onError?: (error: WsError) => void;
+  onComplete?: () => void;
+};
+
+export type Unsubscribe = () => void;
+
+export type WsClientOptions = {
   url: string;
   protocols?: string | string[];
   WebSocketImpl?: typeof WebSocket;
   reconnect?: boolean | { retries?: number; delayMs?: number | ((attempt: number) => number) };
 };
 
-export function createWsTransport(options: RpcWsClientOptions): RpcClientTransport {
+export interface WsClientTransport {
+  subscribe(
+    entity: string,
+    operation: string,
+    params: any,
+    observer: SubscriptionObserver<any>,
+    signal?: AbortSignal,
+    context?: any,
+  ): Unsubscribe;
+}
+
+export function createWsTransport(options: WsClientOptions): WsClientTransport {
   const WebSocketCtor: typeof WebSocket | undefined =
     options.WebSocketImpl ?? (globalThis as any).WebSocket;
 
   if (!WebSocketCtor) {
     throw new Error(
-      'No WebSocket implementation available. Pass WebSocketImpl in createRpcClient options.',
+      'No WebSocket implementation available. Pass WebSocketImpl in createWsClient options.',
     );
   }
 
@@ -23,10 +41,6 @@ export function createWsTransport(options: RpcWsClientOptions): RpcClientTranspo
   let connecting: Promise<WebSocket> | undefined;
   let nextId = 0;
 
-  const pending = new Map<
-    string,
-    { resolve: (value: any) => void; reject: (error: any) => void }
-  >();
   const subscriptions = new Map<
     string,
     { entity: string; operation: string; params: any; observer: SubscriptionObserver<any> }
@@ -68,11 +82,6 @@ export function createWsTransport(options: RpcWsClientOptions): RpcClientTranspo
   }
 
   function handleClose(): void {
-    for (const { reject } of pending.values()) {
-      reject(new WsError('connectionClosed', 'WebSocket connection closed'));
-    }
-    pending.clear();
-
     if (options.reconnect) {
       scheduleReconnect(1);
     } else {
@@ -84,12 +93,16 @@ export function createWsTransport(options: RpcWsClientOptions): RpcClientTranspo
   }
 
   function handleMessage(raw: string): void {
-    const message: RpcWsServerMessage = JSON.parse(raw);
+    const message: WsServerMessage = JSON.parse(raw);
 
     switch (message.type) {
-      case 'result': {
-        pending.get(message.id)?.resolve(message.result);
-        pending.delete(message.id);
+      case 'data': {
+        subscriptions.get(message.id)?.observer.onData(message.data);
+        break;
+      }
+      case 'complete': {
+        subscriptions.get(message.id)?.observer.onComplete?.();
+        subscriptions.delete(message.id);
         break;
       }
       case 'error': {
@@ -100,22 +113,7 @@ export function createWsTransport(options: RpcWsClientOptions): RpcClientTranspo
           message.error.data,
           message.error.issues as any,
         );
-        const pendingEntry = pending.get(message.id);
-        if (pendingEntry) {
-          pendingEntry.reject(error);
-          pending.delete(message.id);
-        } else {
-          subscriptions.get(message.id)?.observer.onError?.(error);
-          subscriptions.delete(message.id);
-        }
-        break;
-      }
-      case 'data': {
-        subscriptions.get(message.id)?.observer.onData(message.data);
-        break;
-      }
-      case 'complete': {
-        subscriptions.get(message.id)?.observer.onComplete?.();
+        subscriptions.get(message.id)?.observer.onError?.(error);
         subscriptions.delete(message.id);
         break;
       }
@@ -151,35 +149,6 @@ export function createWsTransport(options: RpcWsClientOptions): RpcClientTranspo
   }
 
   return {
-    async call(entity, operation, params, signal) {
-      if (signal?.aborted) {
-        throw new DOMException('Aborted', 'AbortError');
-      }
-
-      const ws = await ensureConnected();
-      const id = genId();
-
-      return new Promise((resolve, reject) => {
-        const onAbort = () => {
-          pending.delete(id);
-          reject(new DOMException('Aborted', 'AbortError'));
-        };
-
-        pending.set(id, {
-          resolve: (value) => {
-            signal?.removeEventListener('abort', onAbort);
-            resolve(value);
-          },
-          reject: (error) => {
-            signal?.removeEventListener('abort', onAbort);
-            reject(error);
-          },
-        });
-        signal?.addEventListener('abort', onAbort);
-
-        ws.send(JSON.stringify({ type: 'call', id, entity, operation, params }));
-      });
-    },
     subscribe(entity, operation, params, observer, signal) {
       const id = genId();
       subscriptions.set(id, { entity, operation, params, observer });
