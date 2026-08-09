@@ -1,38 +1,36 @@
 import type {
   BaseContext,
-  Handler,
-  RpcSchema,
-  RpcWsClientMessage,
-  RpcWsErrorPayload,
-  RpcWsServerMessage,
   SubscriptionHandler,
+  WsClientMessage,
+  WsErrorPayload,
+  WsSchema,
+  WsServerMessage,
 } from '../shared';
+import { defaultErrorHandler } from './default-error-handler';
 import type { Hooks } from './hook-types';
-import { invokeOperation } from './invoke-operation';
-import { isSubscriptionHandler, resolveOperation } from './operation-lookup';
-import type { RpcWsSocket } from './rpc-ws-socket';
-import { defaultWsErrorHandler } from './ws-error';
+import { resolveOperation } from './operation-lookup';
+import type { WsSocket } from './ws-socket';
 
 type ActiveSubscription = {
   generator: AsyncGenerator<any, void, void>;
   unsubscribed: boolean;
 };
 
-export function createRpcWsHandler<T extends RpcSchema, Context extends BaseContext>(config: {
-  socket: RpcWsSocket;
+export function createWsHandler<T extends WsSchema, Context extends BaseContext>(config: {
+  socket: WsSocket;
   context: Context;
   operations: T;
-  errorHandler?: (error: any) => RpcWsErrorPayload | Promise<RpcWsErrorPayload>;
+  errorHandler?: (error: any) => WsErrorPayload | Promise<WsErrorPayload>;
   hooks?: Hooks<T, Context>;
 }): { close: () => void } {
   const { socket, context, operations, hooks } = config;
-  const errorHandler = config.errorHandler ?? defaultWsErrorHandler;
+  const errorHandler = config.errorHandler ?? defaultErrorHandler;
   const activeSubscriptions = new Map<string, ActiveSubscription>();
 
-  const send = (message: RpcWsServerMessage) => socket.send(JSON.stringify(message));
+  const send = (message: WsServerMessage) => socket.send(JSON.stringify(message));
 
   socket.onMessage(async (raw) => {
-    let message: RpcWsClientMessage;
+    let message: WsClientMessage;
     try {
       message = JSON.parse(raw);
     } catch {
@@ -45,16 +43,15 @@ export function createRpcWsHandler<T extends RpcSchema, Context extends BaseCont
         entry.unsubscribed = true;
         activeSubscriptions.delete(message.id);
         // Not awaited: a subscription handler may be mid-await on a long-lived
-        // internal event (e.g. waiting on the next pub/sub message), and
-        // generator.return() only resolves once that pending await settles.
-        // The `unsubscribed` flag above already stops further frames from
-        // reaching the client immediately; cleanup (finally blocks) happens
-        // once the generator naturally reaches its next suspension point.
+        // internal event, and generator.return() only resolves once that
+        // pending await settles. The `unsubscribed` flag above already stops
+        // further frames from reaching the client immediately.
         void entry.generator.return(undefined);
       }
       return;
     }
 
+    // message.type === 'subscribe'
     const fn = resolveOperation(operations, message.entity, message.operation);
 
     if (!fn) {
@@ -62,43 +59,6 @@ export function createRpcWsHandler<T extends RpcSchema, Context extends BaseCont
         type: 'error',
         id: message.id,
         error: { key: 'notImplemented', message: 'Not implemented' },
-      });
-      return;
-    }
-
-    if (message.type === 'call') {
-      if (isSubscriptionHandler(fn)) {
-        send({
-          type: 'error',
-          id: message.id,
-          error: { key: 'badRequest', message: 'Operation is a subscription' },
-        });
-        return;
-      }
-
-      const outcome = await invokeOperation({
-        handler: fn as Handler<any, any, any>,
-        entity: message.entity as keyof T,
-        operation: message.operation as keyof T[keyof T],
-        params: message.params,
-        context,
-        hooks,
-      });
-
-      if (outcome.ok) {
-        send({ type: 'result', id: message.id, result: outcome.result });
-      } else {
-        send({ type: 'error', id: message.id, error: await errorHandler(outcome.error) });
-      }
-      return;
-    }
-
-    // message.type === 'subscribe'
-    if (!isSubscriptionHandler(fn)) {
-      send({
-        type: 'error',
-        id: message.id,
-        error: { key: 'badRequest', message: 'Operation is not a subscription' },
       });
       return;
     }

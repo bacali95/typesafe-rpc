@@ -1,6 +1,6 @@
-import type { RpcWsErrorPayload } from '../shared';
+import type { WsErrorPayload } from '../shared';
 
-export async function defaultWsErrorHandler(error: unknown): Promise<RpcWsErrorPayload> {
+export async function defaultErrorHandler(error: unknown): Promise<WsErrorPayload> {
   if (error instanceof Response) {
     const text = await error.text();
     try {
