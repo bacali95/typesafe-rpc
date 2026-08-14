@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.3.0](https://github.com/bacali95/typesafe-rpc/compare/typesafe-ws-v0.2.0...typesafe-ws-v0.3.0) (2026-08-14)
+
 ## [0.2.0](https://github.com/bacali95/typesafe-rpc/compare/typesafe-ws-v0.1.1...typesafe-ws-v0.2.0) (2026-08-14)
 
 ### [0.1.1](https://github.com/bacali95/typesafe-rpc/compare/typesafe-ws-v0.1.0...typesafe-ws-v0.1.1) (2026-08-09)
