@@ -1,98 +1,82 @@
-import type { WsSchema } from '../shared';
+import { EventEmitter, on } from 'node:events';
 
-export interface WsServerRegistry {
-  register(
-    entity: string,
-    operation: string,
-    params: unknown,
-    send: (data: unknown) => void,
-  ): () => void;
-}
+import type { WsSchema } from '../shared';
 
 export type WsServer<T extends WsSchema> = {
   [K in keyof T]: {
     [L in keyof T[K]]: T[K][L] extends (args: any) => AsyncGenerator<infer Result, any, any>
-      ? { emit(params: Parameters<T[K][L]>[0]['params'], data: Result): void }
+      ? {
+          emit(params: Parameters<T[K][L]>[0]['params'], data: Result): void;
+          listen(
+            params: Parameters<T[K][L]>[0]['params'],
+            signal?: AbortSignal,
+          ): AsyncGenerator<Result, void, void>;
+        }
       : never;
   };
 };
 
-const REGISTRY = Symbol('typesafe-ws.server-registry');
+function stableKey(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableKey).join(',')}]`;
 
-function paramsMatch(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  const keys = Object.keys(value as Record<string, unknown>).sort();
+  return `{${keys
+    .map((key) => `${JSON.stringify(key)}:${stableKey((value as Record<string, unknown>)[key])}`)
+    .join(',')}}`;
+}
 
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
+function channelKey(entity: string, operation: string, params: unknown): string {
+  return `${entity}.${operation}:${stableKey(params)}`;
+}
 
-  return (
-    aKeys.length === bKeys.length &&
-    aKeys.every((key) => paramsMatch((a as any)[key], (b as any)[key]))
-  );
+function isAbortError(error: unknown): boolean {
+  return (error as { name?: string } | null)?.name === 'AbortError';
 }
 
 /**
- * Creates a typed handle onto every active subscription for a `WsSchema`, for use by
- * other parts of the backend (REST controllers, queue consumers, cron jobs, ...) that
- * need to push data into subscriptions from outside the subscription handlers
- * themselves. Share one instance across all connections (pass it to every
- * `createWsHandler` call via the `server` option) so `emit` reaches every matching
- * subscriber process-wide.
+ * Creates a typed handle onto a process-wide event bus for a `WsSchema`, for use by other
+ * parts of the backend (REST controllers, queue consumers, cron jobs, ...) that need to push
+ * data into subscriptions from outside the subscription handlers themselves.
  *
- * `emit(params, data)` delivers to subscriptions whose `params` deep-equal the ones
- * passed in; it does not invoke or otherwise affect the subscription handler function.
+ * `emit(params, data)` publishes `data` on the channel for that entity/operation/params.
+ * `listen(params, signal)` returns an async generator over that same channel, meant to be
+ * consumed from inside a subscription handler (typically via `yield*`).
+ *
+ * Always pass the handler's `signal` (from `Args`) through to `listen`: an async generator
+ * parked on an event that may never come again only unwinds once its *own* pending await
+ * settles, so a plain `generator.return()` from the caller can sit queued forever on a quiet
+ * channel. The signal lets `listen` tear itself down immediately instead of leaking its
+ * listener on the bus.
  */
 export function createWsServer<T extends WsSchema>(): WsServer<T> {
-  const subscriptions = new Map<string, Set<{ params: unknown; send: (data: unknown) => void }>>();
-
-  const registry: WsServerRegistry = {
-    register(entity, operation, params, send) {
-      const key = `${entity}.${operation}`;
-      let entries = subscriptions.get(key);
-      if (!entries) {
-        entries = new Set();
-        subscriptions.set(key, entries);
-      }
-
-      const entry = { params, send };
-      entries.add(entry);
-
-      return () => entries!.delete(entry);
-    },
-  };
-
-  const emit = (entity: string, operation: string, params: unknown, data: unknown) => {
-    const entries = subscriptions.get(`${entity}.${operation}`);
-    if (!entries) return;
-
-    for (const entry of entries) {
-      if (paramsMatch(entry.params, params)) {
-        entry.send(data);
-      }
-    }
-  };
+  const bus = new EventEmitter();
+  bus.setMaxListeners(0);
 
   return new Proxy(
     {},
     {
-      get: (_, entity) => {
-        if (entity === REGISTRY) return registry;
-
-        return new Proxy(
+      get: (_, entity: string) =>
+        new Proxy(
           {},
           {
             get: (_, operation: string) => ({
               emit: (params: unknown, data: unknown) =>
-                emit(entity as string, operation, params, data),
+                bus.emit(channelKey(entity, operation, params), data),
+              listen: async function* (params: unknown, signal?: AbortSignal) {
+                try {
+                  for await (const [data] of on(bus, channelKey(entity, operation, params), {
+                    signal,
+                  })) {
+                    yield data;
+                  }
+                } catch (error) {
+                  if (!isAbortError(error)) throw error;
+                }
+              },
             }),
           },
-        );
-      },
+        ),
     },
   ) as WsServer<T>;
-}
-
-export function getWsServerRegistry(server: unknown): WsServerRegistry | undefined {
-  return (server as any)?.[REGISTRY];
 }

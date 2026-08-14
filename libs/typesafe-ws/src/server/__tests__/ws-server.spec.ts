@@ -1,74 +1,101 @@
-import { createWsServer, getWsServerRegistry } from '../ws-server';
+import { createWsServer } from '../ws-server';
 
 describe('createWsServer', () => {
-  it('emits to a subscription registered with deeply-equal params', () => {
+  it('delivers emitted data to a listener registered with deeply-equal params', async () => {
     const server = createWsServer<any>();
-    const registry = getWsServerRegistry(server)!;
-    const send = jest.fn();
+    const generator = server.messages.onNew.listen({ roomId: 'general' });
 
-    registry.register('messages', 'onNew', { roomId: 'general' }, send);
+    const next = generator.next();
     server.messages.onNew.emit({ roomId: 'general' }, { text: 'hi' });
 
-    expect(send).toHaveBeenCalledWith({ text: 'hi' });
+    expect((await next).value).toEqual({ text: 'hi' });
+    await generator.return(undefined);
   });
 
-  it('does not emit to a subscription with different params', () => {
+  it('matches params regardless of key order', async () => {
     const server = createWsServer<any>();
-    const registry = getWsServerRegistry(server)!;
-    const send = jest.fn();
+    const generator = server.messages.onNew.listen({ a: 1, b: 2 });
 
-    registry.register('messages', 'onNew', { roomId: 'general' }, send);
-    server.messages.onNew.emit({ roomId: 'random' }, { text: 'hi' });
+    const next = generator.next();
+    server.messages.onNew.emit({ b: 2, a: 1 }, 'hi');
 
-    expect(send).not.toHaveBeenCalled();
+    expect((await next).value).toBe('hi');
+    await generator.return(undefined);
   });
 
-  it('does not emit to a different entity/operation', () => {
+  it('does not deliver to a listener with different params', async () => {
     const server = createWsServer<any>();
-    const registry = getWsServerRegistry(server)!;
-    const send = jest.fn();
+    const generator = server.messages.onNew.listen({ roomId: 'general' });
 
-    registry.register('messages', 'onNew', {}, send);
-    server.messages.onEdit.emit({}, { text: 'hi' });
-    server.rooms.onNew.emit({}, { text: 'hi' });
+    const next = generator.next();
+    server.messages.onNew.emit({ roomId: 'random' }, 'ignored');
+    server.messages.onNew.emit({ roomId: 'general' }, 'match');
 
-    expect(send).not.toHaveBeenCalled();
+    expect((await next).value).toBe('match');
+    await generator.return(undefined);
   });
 
-  it('emits to every matching subscriber', () => {
+  it('does not deliver to a different entity/operation', async () => {
     const server = createWsServer<any>();
-    const registry = getWsServerRegistry(server)!;
-    const sendA = jest.fn();
-    const sendB = jest.fn();
+    const generator = server.messages.onNew.listen({});
 
-    registry.register('messages', 'onNew', { roomId: 'general' }, sendA);
-    registry.register('messages', 'onNew', { roomId: 'general' }, sendB);
+    const next = generator.next();
+    server.messages.onEdit.emit({}, 'ignored');
+    server.rooms.onNew.emit({}, 'ignored');
+    server.messages.onNew.emit({}, 'match');
+
+    expect((await next).value).toBe('match');
+    await generator.return(undefined);
+  });
+
+  it('delivers to every active listener', async () => {
+    const server = createWsServer<any>();
+    const generatorA = server.messages.onNew.listen({ roomId: 'general' });
+    const generatorB = server.messages.onNew.listen({ roomId: 'general' });
+
+    const nextA = generatorA.next();
+    const nextB = generatorB.next();
     server.messages.onNew.emit({ roomId: 'general' }, { text: 'hi' });
 
-    expect(sendA).toHaveBeenCalledWith({ text: 'hi' });
-    expect(sendB).toHaveBeenCalledWith({ text: 'hi' });
+    expect((await nextA).value).toEqual({ text: 'hi' });
+    expect((await nextB).value).toEqual({ text: 'hi' });
+    await generatorA.return(undefined);
+    await generatorB.return(undefined);
   });
 
-  it('stops emitting after the registration is unregistered', () => {
+  it('matches undefined params only against undefined params', async () => {
     const server = createWsServer<any>();
-    const registry = getWsServerRegistry(server)!;
-    const send = jest.fn();
+    const generator = server.ticks.onTick.listen(undefined);
 
-    const unregister = registry.register('messages', 'onNew', { roomId: 'general' }, send);
-    unregister();
-    server.messages.onNew.emit({ roomId: 'general' }, { text: 'hi' });
-
-    expect(send).not.toHaveBeenCalled();
-  });
-
-  it('matches undefined params only against undefined params', () => {
-    const server = createWsServer<any>();
-    const registry = getWsServerRegistry(server)!;
-    const send = jest.fn();
-
-    registry.register('ticks', 'onTick', undefined, send);
+    const next = generator.next();
     server.ticks.onTick.emit(undefined, 1);
 
-    expect(send).toHaveBeenCalledWith(1);
+    expect((await next).value).toBe(1);
+    await generator.return(undefined);
+  });
+
+  it('stops yielding once the listener is returned', async () => {
+    const server = createWsServer<any>();
+    const generator = server.messages.onNew.listen({ roomId: 'general' });
+
+    const first = generator.next();
+    server.messages.onNew.emit({ roomId: 'general' }, 1);
+    expect((await first).value).toBe(1);
+
+    await generator.return(undefined);
+    server.messages.onNew.emit({ roomId: 'general' }, 2);
+
+    await expect(generator.next()).resolves.toEqual({ value: undefined, done: true });
+  });
+
+  it('tears down immediately when its signal aborts, even on a channel with no further events', async () => {
+    const server = createWsServer<any>();
+    const controller = new AbortController();
+    const generator = server.messages.onNew.listen({ roomId: 'quiet' }, controller.signal);
+
+    const next = generator.next();
+    controller.abort();
+
+    await expect(next).resolves.toEqual({ value: undefined, done: true });
   });
 });
