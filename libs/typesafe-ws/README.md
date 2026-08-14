@@ -98,15 +98,15 @@ import { wsSchema } from './ws-schema';
 export const wsServer = createWsServer<typeof wsSchema>();
 ```
 
-The subscription handler consumes its channel with `listen(params, signal)`, always passing through the `signal` it receives in `Args`:
+The subscription handler consumes its channel with `listen(args)`, passing its own `args` straight through:
 
 ```typescript
 // ws-schema.ts
 import { wsServer } from './ws-server-handle';
 
 const onNewMessage: SubscriptionHandler<{ roomId: string }, BaseContext, Message> =
-  async function* ({ params, signal }) {
-    yield* wsServer.messages.onNew.listen(params, signal);
+  async function* (args) {
+    yield* wsServer.messages.onNew.listen(args);
   };
 ```
 
@@ -123,7 +123,7 @@ app.post('/rooms/:roomId/messages', (req, res) => {
 });
 ```
 
-`emit(params, data)` publishes `data` on the channel for that entity/operation/params; `listen(params, signal)` returns an async generator over that same channel. `createWsHandler` aborts each subscription's `signal` on unsubscribe/socket-close, which is why passing it through matters: an async generator parked on an event that may never come again (a quiet room) only unwinds once its _own_ pending await settles, so without the signal a plain unsubscribe can leave its listener on the bus forever. `emit` never invokes the handler function directly — it's a pure pub/sub hop, and it only reaches subscriptions in the same process.
+`emit(params, data)` publishes `data` on the channel for that entity/operation/params; `listen(args)` returns an async generator over that same channel, keyed off `args.params` and torn down via `args.signal`. `createWsHandler` aborts each subscription's `signal` on unsubscribe/socket-close, which is why passing `args` straight through matters: an async generator parked on an event that may never come again (a quiet room) only unwinds once its _own_ pending await settles, so without the signal a plain unsubscribe can leave its listener on the bus forever. `emit` never invokes the handler function directly — it's a pure pub/sub hop, and it only reaches subscriptions in the same process.
 
 ### 4. Create the Client
 
@@ -258,13 +258,13 @@ type WsServer<T extends WsSchema> = {
   [entity]: {
     [operation]: {
       emit(params: Params, data: Result): void;
-      listen(params: Params, signal?: AbortSignal): AsyncGenerator<Result, void, void>;
+      listen(args: Args<Params, Context>): AsyncGenerator<Result, void, void>;
     };
   };
 };
 ```
 
-`emit(params, data)` publishes `data` on the channel identified by that entity/operation/params tuple. `listen(params, signal)` returns an async generator over that same channel — call it from inside a subscription handler, typically via `yield*`, and always pass the handler's `signal` through so the generator tears itself down immediately when the subscription ends instead of leaking its listener on a channel that goes quiet. `emit` and `listen` never invoke the subscription handler function directly; they're independent producer/consumer ends of the same channel.
+`emit(params, data)` publishes `data` on the channel identified by that entity/operation/params tuple. `listen(args)` returns an async generator over that same channel, keyed off `args.params` and torn down via `args.signal` — call it from inside a subscription handler, passing the handler's own `args` straight through, typically via `yield* wsServer.entity.operation.listen(args)`. Passing `args` (rather than just `params`) matters: without `args.signal`, the generator tears down only when its channel happens to fire again, leaking its listener on the bus in the meantime. `emit` and `listen` never invoke the subscription handler function directly; they're independent producer/consumer ends of the same channel.
 
 **Wire protocol** (JSON frames, correlated by `id`): client sends `{ type: 'subscribe', id, entity, operation, params }` or `{ type: 'unsubscribe', id }`; server replies with a stream of `{ type: 'data', id, data }` ending in `{ type: 'complete', id }` or `{ type: 'error', id, error }`.
 

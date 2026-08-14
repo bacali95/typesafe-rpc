@@ -1,16 +1,15 @@
 import { EventEmitter, on } from 'node:events';
 
-import type { WsSchema } from '../shared';
+import type { Args, WsSchema } from '../shared';
 
 export type WsServer<T extends WsSchema> = {
   [K in keyof T]: {
-    [L in keyof T[K]]: T[K][L] extends (args: any) => AsyncGenerator<infer Result, any, any>
+    [L in keyof T[K]]: T[K][L] extends (
+      args: Args<infer Params, infer Context>,
+    ) => AsyncGenerator<infer Result, any, any>
       ? {
-          emit(params: Parameters<T[K][L]>[0]['params'], data: Result): void;
-          listen(
-            params: Parameters<T[K][L]>[0]['params'],
-            signal?: AbortSignal,
-          ): AsyncGenerator<Result, void, void>;
+          emit(params: Params, data: Result): void;
+          listen(args: Args<Params, Context>): AsyncGenerator<Result, void, void>;
         }
       : never;
   };
@@ -40,14 +39,14 @@ function isAbortError(error: unknown): boolean {
  * data into subscriptions from outside the subscription handlers themselves.
  *
  * `emit(params, data)` publishes `data` on the channel for that entity/operation/params.
- * `listen(params, signal)` returns an async generator over that same channel, meant to be
- * consumed from inside a subscription handler (typically via `yield*`).
+ * `listen(args)` returns an async generator over that same channel, meant to be consumed from
+ * inside a subscription handler (typically via `yield*`) by passing the handler's own `args`
+ * straight through: `yield* wsServer.entity.operation.listen(args)`.
  *
- * Always pass the handler's `signal` (from `Args`) through to `listen`: an async generator
- * parked on an event that may never come again only unwinds once its *own* pending await
- * settles, so a plain `generator.return()` from the caller can sit queued forever on a quiet
- * channel. The signal lets `listen` tear itself down immediately instead of leaking its
- * listener on the bus.
+ * `args.signal` matters, not just `args.params`: an async generator parked on an event that
+ * may never come again only unwinds once its *own* pending await settles, so a plain
+ * `generator.return()` from the caller can sit queued forever on a quiet channel. The signal
+ * lets `listen` tear itself down immediately instead of leaking its listener on the bus.
  */
 export function createWsServer<T extends WsSchema>(): WsServer<T> {
   const bus = new EventEmitter();
@@ -63,10 +62,10 @@ export function createWsServer<T extends WsSchema>(): WsServer<T> {
             get: (_, operation: string) => ({
               emit: (params: unknown, data: unknown) =>
                 bus.emit(channelKey(entity, operation, params), data),
-              listen: async function* (params: unknown, signal?: AbortSignal) {
+              listen: async function* (args: { params: unknown; signal?: AbortSignal }) {
                 try {
-                  for await (const [data] of on(bus, channelKey(entity, operation, params), {
-                    signal,
+                  for await (const [data] of on(bus, channelKey(entity, operation, args.params), {
+                    signal: args.signal,
                   })) {
                     yield data;
                   }

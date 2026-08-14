@@ -338,8 +338,8 @@ describe('createWsHandler', () => {
     const { socket, dispatch } = makeSocket();
     const operations = {
       messages: {
-        onNew: async function* ({ params, signal }: { params: any; signal: AbortSignal }) {
-          yield* wsServer.messages.onNew.listen(params, signal);
+        onNew: async function* (args: { params: any; signal: AbortSignal }) {
+          yield* wsServer.messages.onNew.listen(args);
         },
       },
     };
@@ -366,8 +366,8 @@ describe('createWsHandler', () => {
     const { socket, dispatch } = makeSocket();
     const operations = {
       messages: {
-        onNew: async function* ({ params, signal }: { params: any; signal: AbortSignal }) {
-          yield* wsServer.messages.onNew.listen(params, signal);
+        onNew: async function* (args: { params: any; signal: AbortSignal }) {
+          yield* wsServer.messages.onNew.listen(args);
         },
       },
     };
