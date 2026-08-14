@@ -31,9 +31,9 @@ describe('route', () => {
       yield 'hello';
     });
 
-    await expect(collect(subscription({ params: {}, context: mockContext, signal: mockSignal }))).resolves.toEqual([
-      'hello',
-    ]);
+    await expect(
+      collect(subscription({ params: {}, context: mockContext, signal: mockSignal })),
+    ).resolves.toEqual(['hello']);
   });
 
   it('should work with OR middleware', async () => {
@@ -43,9 +43,9 @@ describe('route', () => {
       .middleware(successMiddleware, successMiddleware, successMiddleware)
       .subscribe(mockSubscriptionHandler);
 
-    await expect(collect(subscription1({ params: {}, context: mockContext, signal: mockSignal }))).resolves.toEqual([
-      {},
-    ]);
+    await expect(
+      collect(subscription1({ params: {}, context: mockContext, signal: mockSignal })),
+    ).resolves.toEqual([{}]);
     expect(successMiddleware).toHaveBeenCalledTimes(1);
 
     jest.clearAllMocks();
@@ -54,9 +54,9 @@ describe('route', () => {
       .middleware(failMiddleware, failMiddleware, successMiddleware)
       .subscribe(mockSubscriptionHandler);
 
-    await expect(collect(subscription2({ params: {}, context: mockContext, signal: mockSignal }))).resolves.toEqual([
-      {},
-    ]);
+    await expect(
+      collect(subscription2({ params: {}, context: mockContext, signal: mockSignal })),
+    ).resolves.toEqual([{}]);
     expect(failMiddleware).toHaveBeenCalledTimes(2);
     expect(successMiddleware).toHaveBeenCalledTimes(1);
 
@@ -66,9 +66,9 @@ describe('route', () => {
       .middleware(failMiddleware, failMiddleware, failMiddleware)
       .subscribe(mockSubscriptionHandler);
 
-    await expect(collect(subscription3({ params: {}, context: mockContext, signal: mockSignal }))).rejects.toThrow(
-      'fail',
-    );
+    await expect(
+      collect(subscription3({ params: {}, context: mockContext, signal: mockSignal })),
+    ).rejects.toThrow('fail');
     expect(failMiddleware).toHaveBeenCalledTimes(3);
     expect(successMiddleware).not.toHaveBeenCalled();
   });
@@ -82,9 +82,9 @@ describe('route', () => {
       .middleware(successMiddleware)
       .subscribe(mockSubscriptionHandler);
 
-    await expect(collect(subscription1({ params: {}, context: mockContext, signal: mockSignal }))).resolves.toEqual([
-      {},
-    ]);
+    await expect(
+      collect(subscription1({ params: {}, context: mockContext, signal: mockSignal })),
+    ).resolves.toEqual([{}]);
     expect(successMiddleware).toHaveBeenCalledTimes(3);
 
     jest.clearAllMocks();
@@ -95,9 +95,9 @@ describe('route', () => {
       .middleware(successMiddleware)
       .subscribe(mockSubscriptionHandler);
 
-    await expect(collect(subscription2({ params: {}, context: mockContext, signal: mockSignal }))).rejects.toThrow(
-      'fail',
-    );
+    await expect(
+      collect(subscription2({ params: {}, context: mockContext, signal: mockSignal })),
+    ).rejects.toThrow('fail');
     expect(successMiddleware).toHaveBeenCalledTimes(1);
     expect(failMiddleware).toHaveBeenCalledTimes(1);
   });
@@ -118,9 +118,9 @@ describe('route', () => {
 
     subscription.overrideMiddlewares(successMiddleware);
 
-    await expect(collect(subscription({ params: {}, context: mockContext, signal: mockSignal }))).resolves.toEqual([
-      {},
-    ]);
+    await expect(
+      collect(subscription({ params: {}, context: mockContext, signal: mockSignal })),
+    ).resolves.toEqual([{}]);
     expect(successMiddleware).toHaveBeenCalledTimes(1);
     expect(failMiddleware).not.toHaveBeenCalled();
   });

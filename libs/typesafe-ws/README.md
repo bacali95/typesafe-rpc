@@ -104,12 +104,10 @@ The subscription handler consumes its channel with `listen(params, signal)`, alw
 // ws-schema.ts
 import { wsServer } from './ws-server-handle';
 
-const onNewMessage: SubscriptionHandler<{ roomId: string }, BaseContext, Message> = async function* ({
-  params,
-  signal,
-}) {
-  yield* wsServer.messages.onNew.listen(params, signal);
-};
+const onNewMessage: SubscriptionHandler<{ roomId: string }, BaseContext, Message> =
+  async function* ({ params, signal }) {
+    yield* wsServer.messages.onNew.listen(params, signal);
+  };
 ```
 
 Any other module can now push into matching subscriptions without going through the handler:
@@ -125,7 +123,7 @@ app.post('/rooms/:roomId/messages', (req, res) => {
 });
 ```
 
-`emit(params, data)` publishes `data` on the channel for that entity/operation/params; `listen(params, signal)` returns an async generator over that same channel. `createWsHandler` aborts each subscription's `signal` on unsubscribe/socket-close, which is why passing it through matters: an async generator parked on an event that may never come again (a quiet room) only unwinds once its *own* pending await settles, so without the signal a plain unsubscribe can leave its listener on the bus forever. `emit` never invokes the handler function directly — it's a pure pub/sub hop, and it only reaches subscriptions in the same process.
+`emit(params, data)` publishes `data` on the channel for that entity/operation/params; `listen(params, signal)` returns an async generator over that same channel. `createWsHandler` aborts each subscription's `signal` on unsubscribe/socket-close, which is why passing it through matters: an async generator parked on an event that may never come again (a quiet room) only unwinds once its _own_ pending await settles, so without the signal a plain unsubscribe can leave its listener on the bus forever. `emit` never invokes the handler function directly — it's a pure pub/sub hop, and it only reaches subscriptions in the same process.
 
 ### 4. Create the Client
 
