@@ -9,13 +9,12 @@ import type {
 import { defaultErrorHandler } from './default-error-handler';
 import type { Hooks } from './hook-types';
 import { resolveOperation } from './operation-lookup';
-import { type WsServer, getWsServerRegistry } from './ws-server';
 import type { WsSocket } from './ws-socket';
 
 type ActiveSubscription = {
   generator: AsyncGenerator<any, void, void>;
   unsubscribed: boolean;
-  unregisterFromServer?: () => void;
+  abortController: AbortController;
 };
 
 export function createWsHandler<T extends WsSchema, Context extends BaseContext>(config: {
@@ -24,11 +23,9 @@ export function createWsHandler<T extends WsSchema, Context extends BaseContext>
   operations: T;
   errorHandler?: (error: any) => WsErrorPayload | Promise<WsErrorPayload>;
   hooks?: Hooks<T, Context>;
-  server?: WsServer<T>;
 }): { close: () => void } {
-  const { socket, context, operations, hooks, server } = config;
+  const { socket, context, operations, hooks } = config;
   const errorHandler = config.errorHandler ?? defaultErrorHandler;
-  const registry = server ? getWsServerRegistry(server) : undefined;
   const activeSubscriptions = new Map<string, ActiveSubscription>();
 
   const send = (message: WsServerMessage) => socket.send(JSON.stringify(message));
@@ -46,11 +43,12 @@ export function createWsHandler<T extends WsSchema, Context extends BaseContext>
       if (entry) {
         entry.unsubscribed = true;
         activeSubscriptions.delete(message.id);
-        entry.unregisterFromServer?.();
-        // Not awaited: a subscription handler may be mid-await on a long-lived
-        // internal event, and generator.return() only resolves once that
-        // pending await settles. The `unsubscribed` flag above already stops
-        // further frames from reaching the client immediately.
+        // Abort first: it settles a handler parked on `wsServer.*.listen(params, signal)`
+        // immediately, without waiting for that channel to fire again. generator.return()
+        // is not awaited: a handler with its own long-lived internal await (a timer, a
+        // broker subscription) only unwinds once that await settles, but the
+        // `unsubscribed` flag above already stops further frames from reaching the client.
+        entry.abortController.abort();
         void entry.generator.return(undefined);
       }
       return;
@@ -76,21 +74,13 @@ export function createWsHandler<T extends WsSchema, Context extends BaseContext>
     };
     hooks?.preCall?.(hookArgs);
 
+    const abortController = new AbortController();
     const generator = (fn as SubscriptionHandler<any, any, any>)({
       params: message.params,
       context,
+      signal: abortController.signal,
     });
-    const entry: ActiveSubscription = { generator, unsubscribed: false };
-    if (registry) {
-      entry.unregisterFromServer = registry.register(
-        message.entity,
-        message.operation,
-        message.params,
-        (data) => {
-          if (!entry.unsubscribed) send({ type: 'data', id: message.id, data });
-        },
-      );
-    }
+    const entry: ActiveSubscription = { generator, unsubscribed: false, abortController };
     activeSubscriptions.set(message.id, entry);
     const start = performance.now();
 
@@ -111,7 +101,6 @@ export function createWsHandler<T extends WsSchema, Context extends BaseContext>
         }
       } finally {
         activeSubscriptions.delete(message.id);
-        entry.unregisterFromServer?.();
       }
     })();
   });
@@ -119,7 +108,7 @@ export function createWsHandler<T extends WsSchema, Context extends BaseContext>
   socket.onClose(() => {
     for (const entry of activeSubscriptions.values()) {
       entry.unsubscribed = true;
-      entry.unregisterFromServer?.();
+      entry.abortController.abort();
       void entry.generator.return(undefined);
     }
     activeSubscriptions.clear();

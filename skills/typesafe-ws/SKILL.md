@@ -12,7 +12,7 @@ This package is a type-safe WebSocket **subscriptions** library — the real-tim
 ## Core types (shared)
 
 - **BaseContext**: `{ request: Request | Express.Request }`
-- **Args&lt;Params, Context&gt;**: `{ params: Params; context: Context }`
+- **Args&lt;Params, Context&gt;**: `{ params: Params; context: Context; signal: AbortSignal }` — `signal` is aborted on unsubscribe/socket-close; pass it through to `wsServer.*.listen(params, signal)` (see below).
 - **SubscriptionHandler&lt;Params, Context, Result&gt;**: `(args: Args<Params, Context>) => AsyncGenerator<Result, void, void>`. Any plain `async function*` satisfies this.
 - **WsSchema**: `{ [entity: string]: { [operation: string]: SubscriptionHandler<any, any, any> } }` — subscriptions only, no plain `Handler` entries.
 
@@ -69,30 +69,35 @@ wss.on('connection', (socket) => {
 ```
 
 - Wire protocol (JSON frames, correlated by `id`): client sends `{ type: 'subscribe', id, entity, operation, params }` or `{ type: 'unsubscribe', id }`; server replies with a stream of `{ type: 'data', id, data }` ending in `{ type: 'complete', id }` or `{ type: 'error', id, error }`.
-- `unsubscribe` and socket close both call `generator.return()` on the subscription (not awaited, so a handler mid-await on a long-lived event doesn't hang cleanup) — write cleanup (timers, unsubscribing from a broker, etc.) in a `finally` block around the `yield` loop.
+- `unsubscribe` and socket close both abort that subscription's `signal` and call `generator.return()` (not awaited, so a handler mid-await on a long-lived event doesn't hang cleanup) — write cleanup (timers, unsubscribing from a broker, etc.) in a `finally` block around the `yield` loop. Aborting the signal happens first because it's what lets a `wsServer.*.listen(...)`-based handler (below) unwind immediately even on a channel that's gone quiet; `generator.return()` alone can sit queued until the handler's own pending await settles.
 - `route(schema).subscribe(fn)` handlers throw the same 400 `Response` shape as `typesafe-rpc`'s `.handle()` on zod validation failure; `defaultErrorHandler` normalizes it into the WS error frame automatically.
 - Unknown entity/operation → `{ key: 'notImplemented' }` error frame.
-- Optional `server?: WsServer<T>` config field wires this connection's subscriptions into a shared `createWsServer()` instance (see below) so other backend code can push into them.
 
 ## Server: createWsServer (push from outside a handler)
 
-From `typesafe-ws/server`. Returns a typed, schema-shaped object whose leaves are `{ emit(params, data): void }` — for code that isn't a subscription handler (a REST controller, a queue consumer, a cron job) to push data into active subscriptions. Create one instance and pass it to every `createWsHandler({ server })` call so it can see subscriptions across every connection:
+From `typesafe-ws/server`. Returns a typed façade over a process-wide event bus, for code that isn't a subscription handler (a REST controller, a queue consumer, a cron job) to push data into active subscriptions. Create one instance and import it both from the schema (to `listen`) and from whatever pushes into it (to `emit`):
 
 ```typescript
 import { createWsServer } from 'typesafe-ws/server';
 
 export const wsServer = createWsServer<typeof wsSchema>();
 
-// elsewhere, wired into every connection:
-createWsHandler({ socket, context, operations: wsSchema, server: wsServer });
+// in the schema, the handler consumes its channel:
+const onNewMessage: SubscriptionHandler<{ roomId: string }, Ctx, Message> = async function* ({
+  params,
+  signal,
+}) {
+  yield* wsServer.messages.onNew.listen(params, signal);
+};
 
-// elsewhere still, e.g. a REST controller:
+// elsewhere, e.g. a REST controller, pushes into it:
 wsServer.messages.onNew.emit({ roomId: 'general' }, message);
 ```
 
-- `emit(params, data)` delivers to every subscription (any connection) whose `params` deep-equal the ones passed in. It does not call the subscription handler function — `emit` and the handler's own `yield`s are two independent ways to feed the same subscription id, and both can be used together.
-- A handler that's *only* ever fed via `emit` has nothing to `yield` — have it wait until torn down by unsubscribe/close instead: `async function* () { await new Promise<never>(() => {}); }`.
-- Matching is exact deep-equality on `params`, not partial/key-based matching.
+- `emit(params, data)` publishes `data` on the channel identified by that entity/operation/params tuple. `listen(params, signal)` returns an async generator over that same channel — consume it from a handler via `yield*`. Both are independent producer/consumer ends of the same channel; `emit` never calls the handler function directly, and a handler can combine `listen` with its own `yield`s.
+- **Always pass `signal` to `listen`.** `listen` is built on Node's `events.on()`; an async generator parked on an event that may never come again only unwinds once its own pending await settles, so a bare `generator.return()` from `createWsHandler` can sit queued forever on a quiet channel, leaking the listener. The `signal` (aborted by `createWsHandler` on unsubscribe/close) is what makes teardown immediate instead.
+- Matching is exact deep-equality on `params` (independent of key order), not partial/key-based matching.
+- In-process only: `emit` only reaches `listen`ers registered against the same `wsServer` instance, i.e. the same process. For multi-instance fan-out, a broker-backed (Redis/NATS) implementation behind the same `emit`/`listen` shape would be a separate, larger change.
 
 ## Client: createWsClient
 

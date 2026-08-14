@@ -7,6 +7,7 @@ describe('route', () => {
   const mockContext = {
     request: {} as Request,
   };
+  const mockSignal = new AbortController().signal;
   const successMiddleware = jest.fn();
   const failMiddleware = jest.fn().mockRejectedValue(new Error('fail'));
   const mockSubscriptionHandler = async function* ({ params }: Args<object, BaseContext>) {
@@ -30,7 +31,7 @@ describe('route', () => {
       yield 'hello';
     });
 
-    await expect(collect(subscription({ params: {}, context: mockContext }))).resolves.toEqual([
+    await expect(collect(subscription({ params: {}, context: mockContext, signal: mockSignal }))).resolves.toEqual([
       'hello',
     ]);
   });
@@ -42,7 +43,7 @@ describe('route', () => {
       .middleware(successMiddleware, successMiddleware, successMiddleware)
       .subscribe(mockSubscriptionHandler);
 
-    await expect(collect(subscription1({ params: {}, context: mockContext }))).resolves.toEqual([
+    await expect(collect(subscription1({ params: {}, context: mockContext, signal: mockSignal }))).resolves.toEqual([
       {},
     ]);
     expect(successMiddleware).toHaveBeenCalledTimes(1);
@@ -53,7 +54,7 @@ describe('route', () => {
       .middleware(failMiddleware, failMiddleware, successMiddleware)
       .subscribe(mockSubscriptionHandler);
 
-    await expect(collect(subscription2({ params: {}, context: mockContext }))).resolves.toEqual([
+    await expect(collect(subscription2({ params: {}, context: mockContext, signal: mockSignal }))).resolves.toEqual([
       {},
     ]);
     expect(failMiddleware).toHaveBeenCalledTimes(2);
@@ -65,7 +66,7 @@ describe('route', () => {
       .middleware(failMiddleware, failMiddleware, failMiddleware)
       .subscribe(mockSubscriptionHandler);
 
-    await expect(collect(subscription3({ params: {}, context: mockContext }))).rejects.toThrow(
+    await expect(collect(subscription3({ params: {}, context: mockContext, signal: mockSignal }))).rejects.toThrow(
       'fail',
     );
     expect(failMiddleware).toHaveBeenCalledTimes(3);
@@ -81,7 +82,7 @@ describe('route', () => {
       .middleware(successMiddleware)
       .subscribe(mockSubscriptionHandler);
 
-    await expect(collect(subscription1({ params: {}, context: mockContext }))).resolves.toEqual([
+    await expect(collect(subscription1({ params: {}, context: mockContext, signal: mockSignal }))).resolves.toEqual([
       {},
     ]);
     expect(successMiddleware).toHaveBeenCalledTimes(3);
@@ -94,7 +95,7 @@ describe('route', () => {
       .middleware(successMiddleware)
       .subscribe(mockSubscriptionHandler);
 
-    await expect(collect(subscription2({ params: {}, context: mockContext }))).rejects.toThrow(
+    await expect(collect(subscription2({ params: {}, context: mockContext, signal: mockSignal }))).rejects.toThrow(
       'fail',
     );
     expect(successMiddleware).toHaveBeenCalledTimes(1);
@@ -105,7 +106,7 @@ describe('route', () => {
     const schema = z.object({ name: z.string() });
     const subscription = route(schema).subscribe(mockSubscriptionHandler);
 
-    const generator = subscription({ params: {} as any, context: mockContext });
+    const generator = subscription({ params: {} as any, context: mockContext, signal: mockSignal });
 
     await expect(generator.next()).rejects.toBeInstanceOf(Response);
   });
@@ -117,7 +118,7 @@ describe('route', () => {
 
     subscription.overrideMiddlewares(successMiddleware);
 
-    await expect(collect(subscription({ params: {}, context: mockContext }))).resolves.toEqual([
+    await expect(collect(subscription({ params: {}, context: mockContext, signal: mockSignal }))).resolves.toEqual([
       {},
     ]);
     expect(successMiddleware).toHaveBeenCalledTimes(1);

@@ -7,6 +7,13 @@ export type BaseContext = {
 export type Args<Params, Context> = {
   params: Params;
   context: Context;
+  /**
+   * Aborted when the subscription ends (unsubscribe or socket close). Pass it to
+   * `wsServer.<entity>.<operation>.listen(params, signal)` so a handler parked on
+   * `yield*` over an external channel tears down immediately instead of leaking its
+   * listener until the channel happens to fire again.
+   */
+  signal: AbortSignal;
 };
 
 export type SubscriptionHandler<Params, Context extends BaseContext, Result> = (

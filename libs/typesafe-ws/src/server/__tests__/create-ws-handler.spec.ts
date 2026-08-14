@@ -333,27 +333,18 @@ describe('createWsHandler', () => {
     ]);
   });
 
-  it('delivers frames pushed from outside via a shared server, not just from the handler', async () => {
+  it('delivers frames pushed from outside via a shared bus, not just from the handler', async () => {
     const wsServer = createWsServer<any>();
     const { socket, dispatch } = makeSocket();
     const operations = {
       messages: {
-        onNew: async function* () {
-          await new Promise<never>(() => {
-            // never resolves
-          });
-          // eslint-disable-next-line no-unreachable
-          yield undefined;
+        onNew: async function* ({ params, signal }: { params: any; signal: AbortSignal }) {
+          yield* wsServer.messages.onNew.listen(params, signal);
         },
       },
     };
 
-    createWsHandler({
-      socket,
-      context: { request: {} as Request },
-      operations,
-      server: wsServer,
-    });
+    createWsHandler({ socket, context: { request: {} as Request }, operations });
     await dispatch({
       type: 'subscribe',
       id: '1',
@@ -370,27 +361,18 @@ describe('createWsHandler', () => {
     expect(sentMessages(socket)).toEqual([{ type: 'data', id: '1', data: { text: 'hi' } }]);
   });
 
-  it('stops delivering server-pushed frames after unsubscribe', async () => {
+  it('stops delivering bus-pushed frames after unsubscribe', async () => {
     const wsServer = createWsServer<any>();
     const { socket, dispatch } = makeSocket();
     const operations = {
       messages: {
-        onNew: async function* () {
-          await new Promise<never>(() => {
-            // never resolves
-          });
-          // eslint-disable-next-line no-unreachable
-          yield undefined;
+        onNew: async function* ({ params, signal }: { params: any; signal: AbortSignal }) {
+          yield* wsServer.messages.onNew.listen(params, signal);
         },
       },
     };
 
-    createWsHandler({
-      socket,
-      context: { request: {} as Request },
-      operations,
-      server: wsServer,
-    });
+    createWsHandler({ socket, context: { request: {} as Request }, operations });
     await dispatch({
       type: 'subscribe',
       id: '1',
