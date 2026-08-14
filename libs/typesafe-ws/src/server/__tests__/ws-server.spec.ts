@@ -3,7 +3,7 @@ import { createWsServer } from '../ws-server';
 describe('createWsServer', () => {
   it('delivers emitted data to a listener registered with deeply-equal params', async () => {
     const server = createWsServer<any>();
-    const generator = server.messages.onNew.listen({ roomId: 'general' });
+    const generator = server.messages.onNew.listen({ params: { roomId: 'general' } });
 
     const next = generator.next();
     server.messages.onNew.emit({ roomId: 'general' }, { text: 'hi' });
@@ -14,7 +14,7 @@ describe('createWsServer', () => {
 
   it('matches params regardless of key order', async () => {
     const server = createWsServer<any>();
-    const generator = server.messages.onNew.listen({ a: 1, b: 2 });
+    const generator = server.messages.onNew.listen({ params: { a: 1, b: 2 } });
 
     const next = generator.next();
     server.messages.onNew.emit({ b: 2, a: 1 }, 'hi');
@@ -25,7 +25,7 @@ describe('createWsServer', () => {
 
   it('does not deliver to a listener with different params', async () => {
     const server = createWsServer<any>();
-    const generator = server.messages.onNew.listen({ roomId: 'general' });
+    const generator = server.messages.onNew.listen({ params: { roomId: 'general' } });
 
     const next = generator.next();
     server.messages.onNew.emit({ roomId: 'random' }, 'ignored');
@@ -37,7 +37,7 @@ describe('createWsServer', () => {
 
   it('does not deliver to a different entity/operation', async () => {
     const server = createWsServer<any>();
-    const generator = server.messages.onNew.listen({});
+    const generator = server.messages.onNew.listen({ params: {} });
 
     const next = generator.next();
     server.messages.onEdit.emit({}, 'ignored');
@@ -50,8 +50,8 @@ describe('createWsServer', () => {
 
   it('delivers to every active listener', async () => {
     const server = createWsServer<any>();
-    const generatorA = server.messages.onNew.listen({ roomId: 'general' });
-    const generatorB = server.messages.onNew.listen({ roomId: 'general' });
+    const generatorA = server.messages.onNew.listen({ params: { roomId: 'general' } });
+    const generatorB = server.messages.onNew.listen({ params: { roomId: 'general' } });
 
     const nextA = generatorA.next();
     const nextB = generatorB.next();
@@ -65,7 +65,7 @@ describe('createWsServer', () => {
 
   it('matches undefined params only against undefined params', async () => {
     const server = createWsServer<any>();
-    const generator = server.ticks.onTick.listen(undefined);
+    const generator = server.ticks.onTick.listen({ params: undefined });
 
     const next = generator.next();
     server.ticks.onTick.emit(undefined, 1);
@@ -76,7 +76,7 @@ describe('createWsServer', () => {
 
   it('stops yielding once the listener is returned', async () => {
     const server = createWsServer<any>();
-    const generator = server.messages.onNew.listen({ roomId: 'general' });
+    const generator = server.messages.onNew.listen({ params: { roomId: 'general' } });
 
     const first = generator.next();
     server.messages.onNew.emit({ roomId: 'general' }, 1);
@@ -91,7 +91,10 @@ describe('createWsServer', () => {
   it('tears down immediately when its signal aborts, even on a channel with no further events', async () => {
     const server = createWsServer<any>();
     const controller = new AbortController();
-    const generator = server.messages.onNew.listen({ roomId: 'quiet' }, controller.signal);
+    const generator = server.messages.onNew.listen({
+      params: { roomId: 'quiet' },
+      signal: controller.signal,
+    });
 
     const next = generator.next();
     controller.abort();

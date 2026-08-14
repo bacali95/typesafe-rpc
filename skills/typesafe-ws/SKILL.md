@@ -12,7 +12,7 @@ This package is a type-safe WebSocket **subscriptions** library — the real-tim
 ## Core types (shared)
 
 - **BaseContext**: `{ request: Request | Express.Request }`
-- **Args&lt;Params, Context&gt;**: `{ params: Params; context: Context; signal: AbortSignal }` — `signal` is aborted on unsubscribe/socket-close; pass it through to `wsServer.*.listen(params, signal)` (see below).
+- **Args&lt;Params, Context&gt;**: `{ params: Params; context: Context; signal: AbortSignal }` — `signal` is aborted on unsubscribe/socket-close; a handler backed by `createWsServer` passes its whole `args` through to `wsServer.*.listen(args)` (see below).
 - **SubscriptionHandler&lt;Params, Context, Result&gt;**: `(args: Args<Params, Context>) => AsyncGenerator<Result, void, void>`. Any plain `async function*` satisfies this.
 - **WsSchema**: `{ [entity: string]: { [operation: string]: SubscriptionHandler<any, any, any> } }` — subscriptions only, no plain `Handler` entries.
 
@@ -82,20 +82,19 @@ import { createWsServer } from 'typesafe-ws/server';
 
 export const wsServer = createWsServer<typeof wsSchema>();
 
-// in the schema, the handler consumes its channel:
-const onNewMessage: SubscriptionHandler<{ roomId: string }, Ctx, Message> = async function* ({
-  params,
-  signal,
-}) {
-  yield* wsServer.messages.onNew.listen(params, signal);
+// in the schema, the handler consumes its channel, passing its own args straight through:
+const onNewMessage: SubscriptionHandler<{ roomId: string }, Ctx, Message> = async function* (
+  args,
+) {
+  yield* wsServer.messages.onNew.listen(args);
 };
 
 // elsewhere, e.g. a REST controller, pushes into it:
 wsServer.messages.onNew.emit({ roomId: 'general' }, message);
 ```
 
-- `emit(params, data)` publishes `data` on the channel identified by that entity/operation/params tuple. `listen(params, signal)` returns an async generator over that same channel — consume it from a handler via `yield*`. Both are independent producer/consumer ends of the same channel; `emit` never calls the handler function directly, and a handler can combine `listen` with its own `yield`s.
-- **Always pass `signal` to `listen`.** `listen` is built on Node's `events.on()`; an async generator parked on an event that may never come again only unwinds once its own pending await settles, so a bare `generator.return()` from `createWsHandler` can sit queued forever on a quiet channel, leaking the listener. The `signal` (aborted by `createWsHandler` on unsubscribe/close) is what makes teardown immediate instead.
+- `emit(params, data)` publishes `data` on the channel identified by that entity/operation/params tuple. `listen(args: Args<Params, Context>)` returns an async generator over that same channel, keyed off `args.params` — consume it from a handler via `yield*`, passing the handler's own `args` through rather than picking fields out of it. Both are independent producer/consumer ends of the same channel; `emit` never calls the handler function directly, and a handler can combine `listen` with its own `yield`s.
+- **Always pass the full `args`, not just `params`.** `listen` is built on Node's `events.on()`; an async generator parked on an event that may never come again only unwinds once its own pending await settles, so a bare `generator.return()` from `createWsHandler` can sit queued forever on a quiet channel, leaking the listener. `args.signal` (aborted by `createWsHandler` on unsubscribe/close) is what makes teardown immediate instead.
 - Matching is exact deep-equality on `params` (independent of key order), not partial/key-based matching.
 - In-process only: `emit` only reaches `listen`ers registered against the same `wsServer` instance, i.e. the same process. For multi-instance fan-out, a broker-backed (Redis/NATS) implementation behind the same `emit`/`listen` shape would be a separate, larger change.
 
