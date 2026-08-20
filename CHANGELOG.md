@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.1](https://github.com/bacali95/typesafe-rpc/compare/v0.1.0...v0.1.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* **typesafe-rpc:** update request type check in getBody function ([5e3b212](https://github.com/bacali95/typesafe-rpc/commit/5e3b212014acf5dfa7df14a96f8394172d6e8bfd))
+
 ## [0.1.0](https://github.com/bacali95/typesafe-rpc/compare/v0.0.32...v0.1.0) (2026-08-09)
 
 
