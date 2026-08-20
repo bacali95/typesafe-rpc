@@ -67,7 +67,7 @@ export async function createRpcHandler<T extends RpcSchema, Context extends Base
 }
 
 async function getBody(request: Request | Express.Request): Promise<any> {
-  if (request instanceof Request) {
+  if ('json' in request) {
     const contentType = request.headers.get('content-type') ?? '';
     if (
       contentType.includes('multipart/form-data') ||
