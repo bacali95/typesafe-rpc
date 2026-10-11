@@ -225,9 +225,7 @@ const authMiddleware: Middleware<any, BaseContext> = async ({ context }) => {
 const protectedHandler = route<UserParams, BaseContext>()
   .middleware(authMiddleware)
   .handle(async ({ params, context }) => {
-    return {
-      /* ... */
-    };
+    return {/* ... */};
   });
 ```
 
