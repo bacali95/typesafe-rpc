@@ -22,6 +22,7 @@
     "@babel/core": "^8.0.7",
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
+    "@eslint/js": "^10.0.1",
     "@nx/eslint": "23.3.0",
     "@nx/eslint-plugin": "23.3.0",
     "@nx/jest": "23.3.0",
