@@ -109,7 +109,10 @@ import type { wsSchema } from './ws-schema';
 const client = createWsClient<typeof wsSchema>({
   url: 'ws://localhost:3001',
   WebSocketImpl: undefined, // inject e.g. Node's `ws` client outside browsers
-  reconnect: { retries: 5, delayMs: 1000 },
+  // `delayMs` can be a number or `(attempt) => number`; omit `retries` to retry forever.
+  reconnect: {
+    delayMs: (attempt) => Math.min(30_000, 1_000 * 2 ** (attempt - 1)) * (0.5 + Math.random() / 2),
+  },
 });
 
 const unsubscribe = client.items.onChanged(
@@ -124,7 +127,13 @@ const unsubscribe = client.items.onChanged(
 ```
 
 - Every operation has one call shape: `client.entity.operation(params, observer, signal?, context?) => Unsubscribe`, where `observer` is `{ onData, onError?, onComplete? }` — no dispatch ambiguity since this package is subscriptions-only.
-- With `reconnect` enabled, active subscriptions are automatically re-sent as fresh `subscribe` frames after reconnecting; without it, a closed connection notifies all active subscriptions via `onError`.
+- With `reconnect` enabled, active subscriptions are automatically re-sent as fresh `subscribe` frames after reconnecting; without it, a closed connection notifies all active subscriptions via `onError` (`connectionClosed`).
+- Reconnect semantics (`ws-transport.ts`):
+  - `attempt` counts across reconnects and resets only after a connection stays open for 30s (`STABLE_CONNECTION_MS`), so a server that accepts then immediately closes still backs off instead of retrying at attempt 1 forever.
+  - At most one reconnect timer is pending — a failed handshake fires both `error` and `close`, and both paths go through the same guarded `scheduleReconnect()`.
+  - No reconnect when no subscription is active.
+  - When `retries` is exhausted, every active subscription gets `onError(WsError('connectionClosed'))` and is dropped — callers that want to stay live must resubscribe themselves, so prefer omitting `retries` with a capped `delayMs`.
+  - A close with code **1008** (policy violation — the server's auth rejection) never reconnects: subscriptions get `onError(WsError('unauthorized', reason, 401))`. Servers should close unauthenticated sockets with `1008`; any other code is treated as transient and retried.
 
 ## Route and middlewares
 
@@ -168,6 +177,14 @@ class WsError extends Error {
   readonly issues?: core.$ZodIssue[];
 }
 ```
+
+Client-side keys raised by the transport itself (server-sent `error` frames carry the server's own key/status):
+
+| key                | When                                                        | status |
+| ------------------ | ----------------------------------------------------------- | ------ |
+| `connectionError`  | the initial connect for a `subscribe` failed                | —      |
+| `connectionClosed` | socket closed with `reconnect` off, or `retries` exhausted  | —      |
+| `unauthorized`     | socket closed with code 1008 (`reason` becomes the message) | 401    |
 
 ## Conventions in this repo
 
