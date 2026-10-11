@@ -14,9 +14,9 @@
   },
   "private": true,
   "dependencies": {
+    "rollup": "4.64.5",
     "tslib": "^2.8.1",
-    "zod": "^4.6.5",
-    "rollup": "4.64.5"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@babel/core": "^8.0.7",
@@ -41,6 +41,7 @@
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-cypress": "7.0.2",
     "eslint-plugin-import": "2.32.0",
+    "globals": "^17.13.0",
     "husky": "^9.1.7",
     "jest": "30.5.2",
     "jest-environment-jsdom": "30.5.2",
@@ -51,6 +52,7 @@
     "ts-jest": "29.4.14",
     "ts-node": "10.9.2",
     "typescript": "6.0.3",
+    "typescript-eslint": "^8.58.0",
     "ws": "^8.22.0"
   },
   "standard-version": {
