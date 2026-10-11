@@ -19,7 +19,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@babel/core": "^8.0.7",
+    "@babel/core": "^7.29.6",
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
     "@eslint/js": "^10.0.1",
