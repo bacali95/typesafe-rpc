@@ -49,9 +49,15 @@ class FakeWebSocket {
     this.emit('message', { data: JSON.stringify(data) });
   }
 
-  triggerClose(): void {
+  triggerClose(code?: number, reason?: string): void {
     this.readyState = FakeWebSocket.CLOSED;
-    this.emit('close', {});
+    this.emit('close', { code, reason });
+  }
+
+  triggerHandshakeFailure(): void {
+    this.readyState = FakeWebSocket.CLOSED;
+    this.emit('error', {});
+    this.emit('close', { code: 1006 });
   }
 }
 
@@ -219,5 +225,91 @@ describe('createWsTransport', () => {
       params: { topic: 'a' },
       id: firstSubscribeMessage.id,
     });
+  });
+
+  it('should stop reconnecting and fail subscriptions with unauthorized on a 1008 close', async () => {
+    const transport = createWsTransport({
+      url: 'ws://test',
+      WebSocketImpl: FakeWebSocket as any,
+      reconnect: { delayMs: 0 },
+    });
+    const onError = jest.fn();
+
+    transport.subscribe('ticks', 'onNew', {}, { onData: jest.fn(), onError });
+    await flush();
+    FakeWebSocket.instances[0].triggerOpen();
+    await flush();
+
+    FakeWebSocket.instances[0].triggerClose(1008, 'Unauthorized');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'unauthorized', status: 401, message: 'Unauthorized' }),
+    );
+  });
+
+  it('should keep backing off when the server accepts then closes, until retries run out', async () => {
+    const delayMs = jest.fn(() => 0);
+    const transport = createWsTransport({
+      url: 'ws://test',
+      WebSocketImpl: FakeWebSocket as any,
+      reconnect: { retries: 2, delayMs },
+    });
+    const onError = jest.fn();
+
+    transport.subscribe('ticks', 'onNew', {}, { onData: jest.fn(), onError });
+    await flush();
+
+    for (let i = 0; i < 3; i++) {
+      const ws = FakeWebSocket.instances[i];
+      ws.triggerOpen();
+      await flush();
+      ws.triggerClose();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+
+    expect(delayMs.mock.calls.map(([attempt]) => attempt)).toEqual([1, 2]);
+    expect(FakeWebSocket.instances).toHaveLength(3);
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ key: 'connectionClosed' }));
+  });
+
+  it('should start a single reconnect when a failed handshake fires both error and close', async () => {
+    const transport = createWsTransport({
+      url: 'ws://test',
+      WebSocketImpl: FakeWebSocket as any,
+      reconnect: { delayMs: 0 },
+    });
+
+    transport.subscribe('ticks', 'onNew', {}, { onData: jest.fn() });
+    await flush();
+    FakeWebSocket.instances[0].triggerOpen();
+    await flush();
+    FakeWebSocket.instances[0].triggerClose();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    FakeWebSocket.instances[1].triggerHandshakeFailure();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    expect(FakeWebSocket.instances).toHaveLength(3);
+  });
+
+  it('should not reconnect when no subscription is active', async () => {
+    const transport = createWsTransport({
+      url: 'ws://test',
+      WebSocketImpl: FakeWebSocket as any,
+      reconnect: { delayMs: 0 },
+    });
+
+    const unsubscribe = transport.subscribe('ticks', 'onNew', {}, { onData: jest.fn() });
+    await flush();
+    FakeWebSocket.instances[0].triggerOpen();
+    await flush();
+
+    unsubscribe();
+    FakeWebSocket.instances[0].triggerClose();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(FakeWebSocket.instances).toHaveLength(1);
   });
 });

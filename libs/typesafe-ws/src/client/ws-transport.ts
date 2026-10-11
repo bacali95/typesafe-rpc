@@ -48,6 +48,12 @@ export function createWsTransport(options: WsClientOptions): WsClientTransport {
 
   const genId = () => `${Date.now().toString(36)}-${(nextId++).toString(36)}`;
 
+  // A connection that stays up this long is healthy again, so the backoff starts over.
+  const STABLE_CONNECTION_MS = 30_000;
+  let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  let attempt = 0;
+  let openedAt = 0;
+
   function resolveReconnectDelay(attempt: number): number {
     if (typeof options.reconnect === 'object' && options.reconnect.delayMs !== undefined) {
       return typeof options.reconnect.delayMs === 'function'
@@ -57,12 +63,27 @@ export function createWsTransport(options: WsClientOptions): WsClientTransport {
     return 1000;
   }
 
-  function scheduleReconnect(attempt: number): void {
+  function failSubscriptions(error: WsError): void {
+    for (const { observer } of subscriptions.values()) {
+      observer.onError?.(error);
+    }
+    subscriptions.clear();
+  }
+
+  // One pending timer at most: a failed handshake fires both `error` and `close`.
+  function scheduleReconnect(): void {
+    if (reconnectTimer !== undefined || !subscriptions.size) return;
+
+    attempt++;
     const maxRetries =
       typeof options.reconnect === 'object' ? options.reconnect.retries : undefined;
-    if (maxRetries !== undefined && attempt > maxRetries) return;
+    if (maxRetries !== undefined && attempt > maxRetries) {
+      failSubscriptions(new WsError('connectionClosed', 'WebSocket connection closed'));
+      return;
+    }
 
-    setTimeout(() => {
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = undefined;
       ensureConnected()
         .then((ws) => {
           for (const [id, sub] of subscriptions) {
@@ -77,18 +98,26 @@ export function createWsTransport(options: WsClientOptions): WsClientTransport {
             );
           }
         })
-        .catch(() => scheduleReconnect(attempt + 1));
+        .catch(() => scheduleReconnect());
     }, resolveReconnectDelay(attempt));
   }
 
-  function handleClose(): void {
+  function handleClose(event: CloseEvent): void {
+    // Only a connection that stayed up resets the backoff; a server that accepts then closes
+    // would otherwise restart it at attempt 1 forever.
+    if (openedAt && Date.now() - openedAt >= STABLE_CONNECTION_MS) attempt = 0;
+    openedAt = 0;
+
+    // 1008 "policy violation": the server rejected the credentials, retrying can't help.
+    if (event.code === 1008) {
+      failSubscriptions(new WsError('unauthorized', event.reason || 'Unauthorized', 401));
+      return;
+    }
+
     if (options.reconnect) {
-      scheduleReconnect(1);
+      scheduleReconnect();
     } else {
-      for (const { observer } of subscriptions.values()) {
-        observer.onError?.(new WsError('connectionClosed', 'WebSocket connection closed'));
-      }
-      subscriptions.clear();
+      failSubscriptions(new WsError('connectionClosed', 'WebSocket connection closed'));
     }
   }
 
@@ -131,13 +160,14 @@ export function createWsTransport(options: WsClientOptions): WsClientTransport {
 
       ws.addEventListener('open', () => {
         socket = ws;
+        openedAt = Date.now();
         connecting = undefined;
         resolve(ws);
       });
       ws.addEventListener('message', (event: MessageEvent) => handleMessage(event.data));
-      ws.addEventListener('close', () => {
+      ws.addEventListener('close', (event: CloseEvent) => {
         connecting = undefined;
-        handleClose();
+        handleClose(event);
       });
       ws.addEventListener('error', (event: any) => {
         connecting = undefined;
