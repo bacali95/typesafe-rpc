@@ -17,7 +17,12 @@
     "paths": {
       "typesafe-rpc": ["libs/typesafe-rpc/src/index.ts"],
       "typesafe-ws": ["libs/typesafe-ws/src/index.ts"]
-    }
+    },
+    "strict": false,
+    "noUncheckedSideEffectImports": false,
+    "types": ["*"],
+    "esModuleInterop": false,
+    "ignoreDeprecations": "6.0"
   },
   "exclude": ["node_modules", "tmp"]
 }
