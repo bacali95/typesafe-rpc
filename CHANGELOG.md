@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.2](https://github.com/bacali95/typesafe-rpc/compare/v0.1.1...v0.1.2) (2026-11-08)
+
+
+### Features
+
+* **typesafe-rpc:** expose route meta, schema and middlewares on handlers ([#8](https://github.com/bacali95/typesafe-rpc/issues/8)) ([a0d9259](https://github.com/bacali95/typesafe-rpc/commit/a0d9259857f33bc963d7f973cbeb876fbad7d863))
+
 ### [0.1.1](https://github.com/bacali95/typesafe-rpc/compare/v0.1.0...v0.1.1) (2026-08-20)
 
 
